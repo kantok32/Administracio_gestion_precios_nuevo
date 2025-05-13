@@ -9,6 +9,7 @@ interface Producto {
   Modelo?: string;
   categoria?: string;
   pf_eur?: string | number;
+  tipo?: string;
   // ... otras propiedades de Producto
   id?: string; // Asegurarse que hay un identificador único, o usar codigo_producto
 }
@@ -102,6 +103,23 @@ export default function OpcionalesCotizacionModal({
               const opcionalCodigo = opcional.codigo_producto;
               const isSelected = opcionalCodigo ? seleccionados.includes(opcionalCodigo) : false;
               
+              // Lógica de doble verificación para el nombre a mostrar
+              let displayName = opcional.nombre_del_producto || '-';
+              const esTipoOpcionalDirecto = opcional.tipo === 'opcional';
+              const tieneNombreOpcional = opcional.nombre_del_producto && 
+                                        opcional.nombre_del_producto.toLowerCase().includes('opcional');
+
+              const debeConsiderarseOpcional = esTipoOpcionalDirecto || (!esTipoOpcionalDirecto && tieneNombreOpcional);
+
+              if (debeConsiderarseOpcional && opcional.nombre_del_producto && 
+                  !opcional.nombre_del_producto.toLowerCase().startsWith('opcional:')) {
+                displayName = `Opcional: ${opcional.nombre_del_producto}`;
+              } else if (debeConsiderarseOpcional && opcional.nombre_del_producto && 
+                         opcional.nombre_del_producto.toLowerCase().startsWith('opcional:')) {
+                // Si ya empieza con "Opcional:", usarlo como está.
+                displayName = opcional.nombre_del_producto;
+              }
+
               return (
                 <tr key={opcionalCodigo || index} style={{ backgroundColor: index % 2 !== 0 ? '#f8f9fa' : 'white' }}>
                   <td style={unifiedTdStyle}>
@@ -111,12 +129,12 @@ export default function OpcionalesCotizacionModal({
                       onChange={() => handleSeleccion(opcionalCodigo)}
                       disabled={!opcionalCodigo} // Deshabilitar si no hay código
                       style={{ cursor: opcionalCodigo ? 'pointer' : 'not-allowed' }}
-                      aria-label={`Seleccionar ${opcional.nombre_del_producto}`}
+                      aria-label={`Seleccionar ${displayName}`}
                       title={!opcionalCodigo ? 'Este opcional no se puede seleccionar (falta código)' : undefined}
                     />
                   </td>
                   <td style={unifiedTdStyle}>{opcional.codigo_producto || '-'}</td>
-                  <td style={unifiedTdStyle}>{opcional.nombre_del_producto || '-'}</td>
+                  <td style={unifiedTdStyle}>{displayName}</td>
                   <td style={unifiedTdStyle}>{opcional.Descripcion || '-'}</td>
                 </tr>
               );

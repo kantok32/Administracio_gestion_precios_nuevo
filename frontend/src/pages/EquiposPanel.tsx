@@ -5,7 +5,6 @@ import OpcionalesCotizacionModal from '../components/OpcionalesCotizacionModal';
 import DetallesCargaPanel from './DetallesCargaPanel';
 import DetallesEnvioPanel from './DetallesEnvioPanel';
 // import type { Producto } from '../types/product'; // <<< LÍNEA A ELIMINAR O COMENTAR
-import PageLayout from '../components/PageLayout';
 // Importar motion
 import { motion } from 'framer-motion';
 
@@ -344,14 +343,29 @@ export default function EquiposPanel() {
   };
 
   const handleOpcionales = async (producto: Producto) => {
-    console.log("Obteniendo opcionales (vista simple) para:", producto.codigo_producto);
+    console.log("Obteniendo opcionales (vista simple) para:", producto.codigo_producto, "Tipo DB:", producto.tipo, "Nombre:", producto.nombre_del_producto);
     setProductoParaVistaOpcionales(producto);
-    setShowVistaOpcionalesModal(true);
+    // setShowVistaOpcionalesModal(true); // Mostrar modal solo si hay algo que cargar o un mensaje claro
     
     setVistaOpcionalesLoading(true);
     setVistaOpcionalesError(null);
     setVistaOpcionalesData([]);
     setLoadingOpcionalesBtn(producto.codigo_producto || null);
+
+    // Lógica de doble verificación para determinar si es opcional
+    const esTipoOpcionalDirecto = producto.tipo === 'opcional';
+    const tieneNombreOpcional = producto.nombre_del_producto && producto.nombre_del_producto.toLowerCase().includes('opcional');
+
+    if (esTipoOpcionalDirecto || (!esTipoOpcionalDirecto && tieneNombreOpcional) ) {
+      // Si el tipo es 'opcional' O (el tipo no es 'opcional' PERO el nombre contiene 'opcional')
+      console.log("El producto se considera opcional (por tipo directo o por nombre). No se buscarán más opcionales para la vista simple.");
+      setVistaOpcionalesError('Este producto ya es un opcional y no tiene sub-opcionales.');
+      setVistaOpcionalesData([]);
+      setVistaOpcionalesLoading(false);
+      setLoadingOpcionalesBtn(null);
+      setShowVistaOpcionalesModal(true); // Mostrar modal para ver el mensaje
+      return;
+    }
 
     try {
       if (!producto.codigo_producto) { // Solo el código del producto es necesario ahora
@@ -1090,156 +1104,197 @@ export default function EquiposPanel() {
     // PASO 2: Detalles de la Carga
     // Renderizar el panel de Detalles de la Carga con todos los productos y sus opcionales seleccionados
     return (
-      <PageLayout>
-        <DetallesCargaPanel 
-          itemsParaCotizar={datosParaDetallesCarga} 
-          onVolver={handleVolverDesdeDetalles}
-          onSiguiente={handleSiguienteDesdeDetalles}
-          onEliminarOpcionalDePrincipal={handleEliminarOpcionalConfirmado}
-        />
-      </PageLayout>
+      <DetallesCargaPanel 
+        itemsParaCotizar={datosParaDetallesCarga} 
+        onVolver={handleVolverDesdeDetalles}
+        onSiguiente={handleSiguienteDesdeDetalles}
+        onEliminarOpcionalDePrincipal={handleEliminarOpcionalConfirmado}
+      />
     );
   }
 
   // PASO 0: Tabla de Equipos (renderizado por defecto)
   return (
-    <PageLayout>
-      <div style={{ padding: '24px' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>EQUIPOS</h1>
+    <div style={{ padding: '24px' }}>
+      <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>EQUIPOS</h1>
 
-        {/* Barra de búsqueda y filtros con los botones actualizados */}
-        <div style={{ 
-          display: 'flex', 
-          marginBottom: '24px', 
-          gap: '16px', 
-          alignItems: 'center',
-          // animation: 'slideIn 0.5s ease-out' // Eliminada animación por simplicidad, puede reintroducirse
-        }}>
-          <div style={{ position: 'relative', flex: '1' }}>
-              <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }}>
-                <Search size={16} />
-              </div>
-              <input
-                type="text"
-                placeholder="Buscar por código o nombre..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ width: '100%', padding: '8px 12px 8px 40px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px', outline: 'none' }}
-              />
-              {searchTerm && (
-                <button onClick={() => setSearchTerm('')} style={{ position: 'absolute', top: '50%', right: '12px', transform: 'translateY(-50%)', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '0', fontSize: '16px' }}>
-                  <X size={18}/>
-                </button>
-              )}
-          </div>
-          
-          {/* BOTÓN ACTUALIZAR CACHÉ */}
-          <motion.button 
-            onClick={refreshProductos} 
-            className="button-hover" 
-            title="Actualizar lista desde el caché" 
-            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', border: '1px solid #1e88e5', color: '#1e88e5', padding: '8px 16px', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}
-            whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }} // Ligero movimiento hacia arriba y escala
-            whileTap={{ scale: 0.95 }}
-          >
-            {loading ? (<><div style={{ width: '16px', height: '16px', border: '2px solid #E5E7EB', borderTopColor: '#1e88e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>Actualizando...</>) : (<><RefreshCw size={16} />Actualizar</>)}
-          </motion.button>
-          
-          {/* BOTÓN SELECCIONAR PARA COTIZAR */}
-          <motion.button 
-            onClick={isSelectionModeActive ? handleProceedToOptionSelection : toggleSelectionMode} 
-            disabled={isSelectionModeActive && productosSeleccionadosParaCotizar.length === 0}
-            className="button-hover" 
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', 
-              backgroundColor: isSelectionModeActive ? (productosSeleccionadosParaCotizar.length > 0 ? '#22c55e' : '#D1D5DB') : 'white', 
-              border: `1px solid ${isSelectionModeActive ? (productosSeleccionadosParaCotizar.length > 0 ? '#16a34a' : '#9CA3AF') : '#1e88e5'}`,
-              color: isSelectionModeActive ? 'white' : '#1e88e5', 
-              padding: '8px 16px', borderRadius: '6px', fontSize: '14px', fontWeight: '500', 
-              cursor: (isSelectionModeActive && productosSeleccionadosParaCotizar.length === 0) ? 'not-allowed' : 'pointer', 
-              transition: 'all 0.2s ease' 
-            }}
-            whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
-            whileTap={{ scale: 0.95 }}
-          >
-            {isSelectionModeActive ? <Check size={18} /> : <Mail size={16} />}
-            {isSelectionModeActive ? `Cotizar ${productosSeleccionadosParaCotizar.length} Equipo(s)` : 'Seleccionar para Cotizar'}
-          </motion.button>
-
-          {/* Botón para CREAR Equipo con icono PlusCircle */}
-          <motion.button 
-            onClick={handleOpenCreateModal} 
-            className="button-hover" 
-            title="Crear un nuevo equipo"
-            style={{
-              display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10B981', 
-              border: '1px solid #059669', color: 'white', padding: '8px 16px', 
-              borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', 
-              transition: 'all 0.2s ease' 
-            }}
-            whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
-            whileTap={{ scale: 0.95 }}
-          >
-            <PlusCircle size={18} /> 
-            Nuevo Equipo
-          </motion.button>
+      {/* Barra de búsqueda y filtros con los botones actualizados */}
+      <div style={{ 
+        display: 'flex', 
+        marginBottom: '24px', 
+        gap: '16px', 
+        alignItems: 'center',
+        // animation: 'slideIn 0.5s ease-out' // Eliminada animación por simplicidad, puede reintroducirse
+      }}>
+        <div style={{ position: 'relative', flex: '1' }}>
+            <div style={{ position: 'absolute', top: '50%', left: '12px', transform: 'translateY(-50%)', color: '#9CA3AF', pointerEvents: 'none' }}>
+              <Search size={16} />
+            </div>
+            <input
+              type="text"
+              placeholder="Buscar por código o nombre..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ width: '100%', padding: '8px 12px 8px 40px', border: '1px solid #D1D5DB', borderRadius: '6px', fontSize: '14px', outline: 'none' }}
+            />
+            {searchTerm && (
+              <button onClick={() => setSearchTerm('')} style={{ position: 'absolute', top: '50%', right: '12px', transform: 'translateY(-50%)', backgroundColor: 'transparent', border: 'none', cursor: 'pointer', color: '#9CA3AF', padding: '0', fontSize: '16px' }}>
+                <X size={18}/>
+              </button>
+            )}
         </div>
+        
+        {/* BOTÓN ACTUALIZAR CACHÉ */}
+        <motion.button 
+          onClick={refreshProductos} 
+          className="button-hover" 
+          title="Actualizar lista desde el caché" 
+          style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', border: '1px solid #1e88e5', color: '#1e88e5', padding: '8px 16px', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}
+          whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }} // Ligero movimiento hacia arriba y escala
+          whileTap={{ scale: 0.95 }}
+        >
+          {loading ? (<><div style={{ width: '16px', height: '16px', border: '2px solid #E5E7EB', borderTopColor: '#1e88e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>Actualizando...</>) : (<><RefreshCw size={16} />Actualizar</>)}
+        </motion.button>
+        
+        {/* BOTÓN SELECCIONAR PARA COTIZAR */}
+        <motion.button 
+          onClick={isSelectionModeActive ? handleProceedToOptionSelection : toggleSelectionMode} 
+          disabled={isSelectionModeActive && productosSeleccionadosParaCotizar.length === 0}
+          className="button-hover" 
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px', 
+            backgroundColor: isSelectionModeActive ? (productosSeleccionadosParaCotizar.length > 0 ? '#22c55e' : '#D1D5DB') : 'white', 
+            border: `1px solid ${isSelectionModeActive ? (productosSeleccionadosParaCotizar.length > 0 ? '#16a34a' : '#9CA3AF') : '#1e88e5'}`,
+            color: isSelectionModeActive ? 'white' : '#1e88e5', 
+            padding: '8px 16px', borderRadius: '6px', fontSize: '14px', fontWeight: '500', 
+            cursor: (isSelectionModeActive && productosSeleccionadosParaCotizar.length === 0) ? 'not-allowed' : 'pointer', 
+            transition: 'all 0.2s ease' 
+          }}
+          whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
+          whileTap={{ scale: 0.95 }}
+        >
+          {isSelectionModeActive ? <Check size={18} /> : <Mail size={16} />}
+          {isSelectionModeActive ? `Cotizar ${productosSeleccionadosParaCotizar.length} Equipo(s)` : 'Seleccionar para Cotizar'}
+        </motion.button>
 
-        {/* Contador */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
-          <div style={{ fontSize: '14px', color: '#6B7280' }}>
-            {loading ? "Cargando equipos..." : `Mostrando ${totalMostrado} de ${productosOriginales.length} equipos`}
-          </div>
+        {/* Botón para CREAR Equipo con icono PlusCircle */}
+        <motion.button 
+          onClick={handleOpenCreateModal} 
+          className="button-hover" 
+          title="Crear un nuevo equipo"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: '#10B981', 
+            border: '1px solid #059669', color: 'white', padding: '8px 16px', 
+            borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', 
+            transition: 'all 0.2s ease' 
+          }}
+          whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
+          whileTap={{ scale: 0.95 }}
+        >
+          <PlusCircle size={18} /> 
+          Nuevo Equipo
+        </motion.button>
+      </div>
+
+      {/* Contador */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
+        <div style={{ fontSize: '14px', color: '#6B7280' }}>
+          {loading ? "Cargando equipos..." : `Mostrando ${totalMostrado} de ${productosOriginales.length} equipos`}
         </div>
+      </div>
 
-        {/* Tabla */}
-        <div style={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '6px', overflow: 'hidden' }}>
-          {loading ? ( <div style={{ padding: '32px', textAlign: 'center'}}>Cargando...</div>
-          ) : error ? ( <div style={{ padding: '32px', textAlign: 'center', color: 'red' }}>Error: {error} <button onClick={refreshProductos}>Reintentar</button></div>
-          ) : productos.length === 0 && productosOriginales.length > 0 ? ( <div style={{ padding: '32px', textAlign: 'center' }}>No hay equipos que coincidan con los filtros.</div>
-          ) : productosOriginales.length === 0 && !loading ? ( <div style={{ padding: '32px', textAlign: 'center' }}>No hay equipos cargados. <button onClick={refreshProductos}>Actualizar</button></div>
-          ) : (
-            <>
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                   <thead>
-                    <tr style={{ backgroundColor: '#f3f4f6', borderBottom: '1px solid #e5e7eb', fontWeight: 'bold', color: '#374151' }}>
-                      <th style={{ padding: '12px 16px', textAlign: 'left', width: '80px' }}>Código</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left' }}>Nombre</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left' }}>Descripción</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left' }}>Modelo</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'left' }}>Tipo</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Ver Detalle</th>
-                      <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Opcionales</th>
-                      {isSelectionModeActive && (
-                        <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Seleccionar</th>
-                      )}
-                      {!isSelectionModeActive && (
-                        <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Acciones</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {productos.map((producto, index) => (
+      {/* Tabla */}
+      <div style={{ backgroundColor: 'white', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', borderRadius: '6px', overflow: 'hidden' }}>
+        {loading ? ( <div style={{ padding: '32px', textAlign: 'center'}}>Cargando...</div>
+        ) : error ? ( <div style={{ padding: '32px', textAlign: 'center', color: 'red' }}>Error: {error} <button onClick={refreshProductos}>Reintentar</button></div>
+        ) : productos.length === 0 && productosOriginales.length > 0 ? ( <div style={{ padding: '32px', textAlign: 'center' }}>No hay equipos que coincidan con los filtros.</div>
+        ) : productosOriginales.length === 0 && !loading ? ( <div style={{ padding: '32px', textAlign: 'center' }}>No hay equipos cargados. <button onClick={refreshProductos}>Actualizar</button></div>
+        ) : (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                 <thead>
+                  <tr style={{ backgroundColor: '#f3f4f6', borderBottom: '1px solid #e5e7eb', fontWeight: 'bold', color: '#374151' }}>
+                    <th style={{ padding: '12px 16px', textAlign: 'left', width: '80px' }}>Código</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>Nombre</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>Descripción</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>Modelo</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'left' }}>Tipo</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Ver Detalle</th>
+                    <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Opcionales</th>
+                    {isSelectionModeActive && (
+                      <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Seleccionar</th>
+                    )}
+                    {!isSelectionModeActive && (
+                      <th style={{ padding: '12px 16px', textAlign: 'center', width: '120px' }}>Acciones</th>
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {productos.map((producto, index) => {
+                    // Lógica de doble verificación para el tipo a mostrar en la tabla principal
+                    let displayTipo: string = '-'; // Initialize with a default
+                    const esTipoOpcionalDirecto = producto.tipo === 'opcional';
+                    const tieneNombreOpcional = producto.nombre_del_producto && 
+                                              producto.nombre_del_producto.toLowerCase().includes('opcional');
+
+                    if (esTipoOpcionalDirecto || tieneNombreOpcional) {
+                      displayTipo = 'Opcional';
+                    } else if (producto.tipo) { // No es opcional por tipo ni nombre, pero producto.tipo existe
+                      displayTipo = producto.tipo.charAt(0).toUpperCase() + producto.tipo.slice(1);
+                    }
+                    // Si no es opcional y producto.tipo no existe, displayTipo permanece como '-'
+
+                    return (
                       <tr key={producto.codigo_producto || `prod-${index}-${Math.random()}`} className="table-row" style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                        {/* Column: Código */}
                         <td style={{ padding: '16px', textAlign: 'left' }}>{producto.codigo_producto || '-'}</td>
+                        {/* Column: Nombre */}
                         <td style={{ padding: '16px', textAlign: 'left' }}>{producto.nombre_del_producto || '-'}</td>
+                        {/* Column: Descripción */}
                         <td style={{ padding: '16px', textAlign: 'left' }}>{producto.descripcion || '-'}</td>
+                        {/* Column: Modelo */}
                         <td style={{ padding: '16px', textAlign: 'left' }}>{producto.Modelo || '-'}</td>
+                        {/* Column: Tipo (with new logic) */}
                         <td style={{ padding: '16px', textAlign: 'left' }}>
-                          {producto.tipo || '-'}
+                          {displayTipo}
                         </td>
-                        <td style={{ padding: '12px', textAlign: 'center' }}><button title="Ver Detalles" className="button-hover" style={{ padding: '6px', backgroundColor: 'transparent', color: '#1d4ed8', border: 'none', borderRadius: '50%', cursor: 'pointer'}} onClick={() => handleVerDetalle(producto)} disabled={loadingDetail === producto.codigo_producto}>{loadingDetail === producto.codigo_producto ? '...': <Info size={18}/>}</button></td>
+                        {/* Column: Ver Detalle */}
                         <td style={{ padding: '12px', textAlign: 'center' }}>
-                          <button title="Ver Opcionales" className="button-hover" style={{ padding: '6px', backgroundColor: 'transparent', color: '#059669', border: 'none', borderRadius: '50%', cursor: 'pointer'}} onClick={() => handleOpcionales(producto)} disabled={loadingOpcionalesBtn === producto.codigo_producto}>
+                          <button 
+                            title="Ver Detalles" 
+                            className="button-hover" 
+                            style={{ padding: '6px', backgroundColor: 'transparent', color: '#1d4ed8', border: 'none', borderRadius: '50%', cursor: 'pointer'}} 
+                            onClick={() => handleVerDetalle(producto)} 
+                            disabled={loadingDetail === producto.codigo_producto}
+                          >
+                            {loadingDetail === producto.codigo_producto ? '...' : <Info size={18}/>}
+                          </button>
+                        </td>
+                        {/* Column: Opcionales */}
+                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                          <button 
+                            title="Ver Opcionales" 
+                            className="button-hover" 
+                            style={{ padding: '6px', backgroundColor: 'transparent', color: '#059669', border: 'none', borderRadius: '50%', cursor: 'pointer'}} 
+                            onClick={() => handleOpcionales(producto)} 
+                            disabled={loadingOpcionalesBtn === producto.codigo_producto}
+                          >
                             {loadingOpcionalesBtn === producto.codigo_producto ? '...' : <ListFilter size={18}/>}
                           </button>
                         </td>
+                        {/* Column: Seleccionar (conditional) */}
                         {isSelectionModeActive && (
                           <td style={{ padding: '12px', textAlign: 'center' }}>
-                            <input type="checkbox" checked={productosSeleccionadosParaCotizar.includes(producto.codigo_producto || '')} onChange={() => producto.codigo_producto && handleToggleProductoParaCotizar(producto.codigo_producto)} disabled={!producto.codigo_producto} style={{ transform: 'scale(1.3)', cursor: 'pointer'}} />
+                            <input 
+                              type="checkbox" 
+                              checked={productosSeleccionadosParaCotizar.includes(producto.codigo_producto || '')} 
+                              onChange={() => producto.codigo_producto && handleToggleProductoParaCotizar(producto.codigo_producto)} 
+                              disabled={!producto.codigo_producto} 
+                              style={{ transform: 'scale(1.3)', cursor: 'pointer'}} />
                           </td>
                         )}
+                        {/* Column: Acciones (conditional) */}
                         {!isSelectionModeActive && (
                           <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
                             <button title="Editar Equipo" onClick={() => handleOpenEditModal(producto)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: '6px', marginRight: '10px', verticalAlign: 'middle' }}>
@@ -1251,305 +1306,305 @@ export default function EquiposPanel() {
                           </td>
                         )}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div> 
-            </> 
-          )}
-        </div> 
-
-        {/* Modales (Crear, Editar, Confirmar Eliminación, VerDetalle, VistaOpcionales) */}
-        {showCreateModal && ( 
-          <div className="modal-overlay" style={unifiedModalOverlayStyle}>
-            <div className="modal-content hover-scale" style={{ ...unifiedModalContentStyle, maxWidth: '700px' }}>
-              <form onSubmit={handleCreateEquipoSubmit}>
-                 <div style={unifiedHeaderStyle}>
-                   <div style={unifiedTitleStyle}>
-                      <PlusCircle size={20} /> 
-                      <h2>Crear Nuevo Equipo</h2>
-                   </div>
-                   <button type="button" onClick={handleCloseCreateModal} className="button-hover" style={unifiedCloseButtonStyle}>
-                     <X size={16}/>
-                   </button>
-                 </div>
-                 <div style={{...unifiedBodyStyle, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
-                    {/* ... campos del formulario de creación ... */}
-                    <div><label>Código Producto*</label><input type="text" name="Codigo_Producto" value={newEquipoForm.Codigo_Producto || ''} onChange={handleNewEquipoFormChange} required /></div>
-                    <div><label>Nombre Producto*</label><input type="text" name="caracteristicas.nombre_del_producto" value={newEquipoForm.caracteristicas?.nombre_del_producto || ''} onChange={handleNewEquipoFormChange} required /></div>
-                    <div><label>Modelo*</label><input type="text" name="caracteristicas.modelo" value={newEquipoForm.caracteristicas?.modelo || ''} onChange={handleNewEquipoFormChange} required /></div>
-                    <div><label>Categoría (Interna)*</label><input type="text" name="caracteristicas.categoria" value={newEquipoForm.caracteristicas?.categoria || ''} onChange={handleNewEquipoFormChange} required /></div>
-                    <div style={{gridColumn: '1 / -1'}}><label>Descripción</label><textarea name="caracteristicas.descripcion" value={newEquipoForm.caracteristicas?.descripcion || ''} onChange={handleNewEquipoFormChange} /></div>
-                    <div><label>Peso (kg)*</label><input type="number" name="peso_kg" value={newEquipoForm.peso_kg || ''} onChange={handleNewEquipoFormChange} required /></div>
-                    {/* ...Añadir TODOS los demás campos requeridos por el backend para la creación ...*/}
-                    {createError && <p style={{ color: 'red', gridColumn: '1 / -1' }}>Error: {createError}</p>}
-                 </div>
-                 <div style={unifiedFooterStyle}>
-                   <button type="button" onClick={handleCloseCreateModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
-                   <button type="submit" disabled={isSubmittingCreate} style={isSubmittingCreate ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#10B981', color: 'white', borderColor: '#059669' }}>
-                    {isSubmittingCreate ? 'Creando...' : 'Crear Equipo'}
-                   </button>
-                 </div>
-               </form>
-            </div>
-          </div>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div> 
+          </> 
         )}
+      </div> 
 
-        {/* --- MODAL PARA EDITAR Equipo --- */}
-        {showEditModal && equipoParaEditar && (
-          <div className="modal-overlay" style={unifiedModalOverlayStyle}>
-            {/* Aumentar maxWidth a 850px y reducir un poco el padding vertical del cuerpo */}
-            <div className="modal-content hover-scale" style={{ ...unifiedModalContentStyle, width: '90%', maxWidth: '850px' }}> 
-              <form onSubmit={handleEditEquipoSubmit}>
-                <div style={unifiedHeaderStyle}> {/* Header se mantiene igual */}
-                  <div style={unifiedTitleStyle}>
-                     <FileEdit size={20} />
-                     <h2>Editar Equipo: {editEquipoForm.caracteristicas?.nombre_del_producto || editEquipoForm.Codigo_Producto}</h2>
+      {/* Modales (Crear, Editar, Confirmar Eliminación, VerDetalle, VistaOpcionales) */}
+      {showCreateModal && ( 
+        <div className="modal-overlay" style={unifiedModalOverlayStyle}>
+          <div className="modal-content hover-scale" style={{ ...unifiedModalContentStyle, maxWidth: '700px' }}>
+            <form onSubmit={handleCreateEquipoSubmit}>
+               <div style={unifiedHeaderStyle}>
+                 <div style={unifiedTitleStyle}>
+                    <PlusCircle size={20} /> 
+                    <h2>Crear Nuevo Equipo</h2>
+                 </div>
+                 <button type="button" onClick={handleCloseCreateModal} className="button-hover" style={unifiedCloseButtonStyle}>
+                   <X size={16}/>
+                 </button>
+               </div>
+               <div style={{...unifiedBodyStyle, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
+                  {/* ... campos del formulario de creación ... */}
+                  <div><label>Código Producto*</label><input type="text" name="Codigo_Producto" value={newEquipoForm.Codigo_Producto || ''} onChange={handleNewEquipoFormChange} required /></div>
+                  <div><label>Nombre Producto*</label><input type="text" name="caracteristicas.nombre_del_producto" value={newEquipoForm.caracteristicas?.nombre_del_producto || ''} onChange={handleNewEquipoFormChange} required /></div>
+                  <div><label>Modelo*</label><input type="text" name="caracteristicas.modelo" value={newEquipoForm.caracteristicas?.modelo || ''} onChange={handleNewEquipoFormChange} required /></div>
+                  <div><label>Categoría (Interna)*</label><input type="text" name="caracteristicas.categoria" value={newEquipoForm.caracteristicas?.categoria || ''} onChange={handleNewEquipoFormChange} required /></div>
+                  <div style={{gridColumn: '1 / -1'}}><label>Descripción</label><textarea name="caracteristicas.descripcion" value={newEquipoForm.caracteristicas?.descripcion || ''} onChange={handleNewEquipoFormChange} /></div>
+                  <div><label>Peso (kg)*</label><input type="number" name="peso_kg" value={newEquipoForm.peso_kg || ''} onChange={handleNewEquipoFormChange} required /></div>
+                  {/* ...Añadir TODOS los demás campos requeridos por el backend para la creación ...*/}
+                  {createError && <p style={{ color: 'red', gridColumn: '1 / -1' }}>Error: {createError}</p>}
+               </div>
+               <div style={unifiedFooterStyle}>
+                 <button type="button" onClick={handleCloseCreateModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
+                 <button type="submit" disabled={isSubmittingCreate} style={isSubmittingCreate ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#10B981', color: 'white', borderColor: '#059669' }}>
+                  {isSubmittingCreate ? 'Creando...' : 'Crear Equipo'}
+                 </button>
+               </div>
+             </form>
+          </div>
+        </div>
+      )}
+
+      {/* --- MODAL PARA EDITAR Equipo --- */}
+      {showEditModal && equipoParaEditar && (
+        <div className="modal-overlay" style={unifiedModalOverlayStyle}>
+          {/* Aumentar maxWidth a 850px y reducir un poco el padding vertical del cuerpo */}
+          <div className="modal-content hover-scale" style={{ ...unifiedModalContentStyle, width: '90%', maxWidth: '850px' }}> 
+            <form onSubmit={handleEditEquipoSubmit}>
+              <div style={unifiedHeaderStyle}> {/* Header se mantiene igual */}
+                <div style={unifiedTitleStyle}>
+                   <FileEdit size={20} />
+                   <h2>Editar Equipo: {editEquipoForm.caracteristicas?.nombre_del_producto || editEquipoForm.Codigo_Producto}</h2>
+                </div>
+                <button type="button" onClick={handleCloseEditModal} className="button-hover" style={unifiedCloseButtonStyle}>
+                   <X size={16}/>
+                </button>
+              </div>
+              
+              {/* Cuerpo del modal con scroll y padding ajustado */}
+              <div style={{
+                ...unifiedBodyStyle, 
+                padding: '20px 24px', // Reducido padding vertical de 24px a 20px
+                maxHeight: 'calc(85vh - 110px)', // Reducido el estimado de header/footer a 110px (de 120px)
+                overflowY: 'auto' 
+              }}>
+                
+                {/* Sección: Información General */}
+                <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Información General</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px 24px', marginBottom: '24px' }}>
+                  {/* ... todos los campos de Información General como estaban ... */}
+                  <div>
+                    <label htmlFor="edit_Codigo_Producto" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Código Producto</label>
+                    <input type="text" name="Codigo_Producto" id="edit_Codigo_Producto" value={editEquipoForm.Codigo_Producto || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', backgroundColor: '#e9ecef'}} readOnly />
                   </div>
-                  <button type="button" onClick={handleCloseEditModal} className="button-hover" style={unifiedCloseButtonStyle}>
-                     <X size={16}/>
-                  </button>
+                  <div>
+                    <label htmlFor="edit_caracteristicas.nombre_del_producto" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Nombre Producto*</label>
+                    <input type="text" name="caracteristicas.nombre_del_producto" id="edit_caracteristicas.nombre_del_producto" value={editEquipoForm.caracteristicas?.nombre_del_producto || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                  {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
+                   <div>
+                    <label htmlFor="edit_caracteristicas.modelo" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Modelo*</label>
+                    <input type="text" name="caracteristicas.modelo" id="edit_caracteristicas.modelo" value={editEquipoForm.caracteristicas?.modelo || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                  <div>
+                    <label htmlFor="edit_categoria" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Categoría Principal*</label>
+                    <input type="text" name="categoria" id="edit_categoria" value={editEquipoForm.categoria || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                   <div>
+                    <label htmlFor="edit_caracteristicas.categoria" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Categoría (Caract.)</label>
+                    <input type="text" name="caracteristicas.categoria" id="edit_caracteristicas.categoria" value={editEquipoForm.caracteristicas?.categoria || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                      <label htmlFor="edit_caracteristicas.descripcion" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Descripción (Caract.)</label>
+                      <textarea name="caracteristicas.descripcion" id="edit_caracteristicas.descripcion" value={editEquipoForm.caracteristicas?.descripcion || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', minHeight: '70px'}}/>
+                  </div>
+                </div>
+
+                {/* Sección: Detalles Físicos */}
+                <h3 style={{ marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Detalles Físicos</h3>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px 24px', marginBottom: '24px' }}>
+                  {/* ... todos los campos de Detalles Físicos como estaban ... */}
+                  <div>
+                    <label htmlFor="edit_peso_kg" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Peso (kg)*</label>
+                    <input type="number" name="peso_kg" id="edit_peso_kg" value={editEquipoForm.peso_kg || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                   {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
+                  <div>
+                    <label htmlFor="edit_dimensiones.largo_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Largo (cm)</label>
+                    <input type="number" name="dimensiones.largo_cm" id="edit_dimensiones.largo_cm" value={editEquipoForm.dimensiones?.largo_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                  <div>
+                    <label htmlFor="edit_dimensiones.ancho_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Ancho (cm)</label>
+                    <input type="number" name="dimensiones.ancho_cm" id="edit_dimensiones.ancho_cm" value={editEquipoForm.dimensiones?.ancho_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                  <div>
+                    <label htmlFor="edit_dimensiones.alto_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Alto (cm)</label>
+                    <input type="number" name="dimensiones.alto_cm" id="edit_dimensiones.alto_cm" value={editEquipoForm.dimensiones?.alto_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
                 </div>
                 
-                {/* Cuerpo del modal con scroll y padding ajustado */}
-                <div style={{
-                  ...unifiedBodyStyle, 
-                  padding: '20px 24px', // Reducido padding vertical de 24px a 20px
-                  maxHeight: 'calc(85vh - 110px)', // Reducido el estimado de header/footer a 110px (de 120px)
-                  overflowY: 'auto' 
-                }}>
-                  
-                  {/* Sección: Información General */}
-                  <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Información General</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px 24px', marginBottom: '24px' }}>
-                    {/* ... todos los campos de Información General como estaban ... */}
-                    <div>
-                      <label htmlFor="edit_Codigo_Producto" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Código Producto</label>
-                      <input type="text" name="Codigo_Producto" id="edit_Codigo_Producto" value={editEquipoForm.Codigo_Producto || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', backgroundColor: '#e9ecef'}} readOnly />
-                    </div>
-                    <div>
-                      <label htmlFor="edit_caracteristicas.nombre_del_producto" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Nombre Producto*</label>
-                      <input type="text" name="caracteristicas.nombre_del_producto" id="edit_caracteristicas.nombre_del_producto" value={editEquipoForm.caracteristicas?.nombre_del_producto || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
-                     <div>
-                      <label htmlFor="edit_caracteristicas.modelo" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Modelo*</label>
-                      <input type="text" name="caracteristicas.modelo" id="edit_caracteristicas.modelo" value={editEquipoForm.caracteristicas?.modelo || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    <div>
-                      <label htmlFor="edit_categoria" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Categoría Principal*</label>
-                      <input type="text" name="categoria" id="edit_categoria" value={editEquipoForm.categoria || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                     <div>
-                      <label htmlFor="edit_caracteristicas.categoria" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Categoría (Caract.)</label>
-                      <input type="text" name="caracteristicas.categoria" id="edit_caracteristicas.categoria" value={editEquipoForm.caracteristicas?.categoria || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    <div style={{ gridColumn: '1 / -1' }}>
-                        <label htmlFor="edit_caracteristicas.descripcion" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Descripción (Caract.)</label>
-                        <textarea name="caracteristicas.descripcion" id="edit_caracteristicas.descripcion" value={editEquipoForm.caracteristicas?.descripcion || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', minHeight: '70px'}}/>
-                    </div>
+                {/* Sección: Clasificación y Origen */}
+                <h3 style={{ marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Clasificación y Origen</h3>
+                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px 24px', marginBottom: '20px' }}>
+                  {/* ... todos los campos de Clasificación y Origen como estaban ... */}
+                  <div>
+                    <label htmlFor="edit_clasificacion_easysystems" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Clasificación EasySystems</label>
+                    <input type="text" name="clasificacion_easysystems" id="edit_clasificacion_easysystems" value={editEquipoForm.clasificacion_easysystems || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
                   </div>
-
-                  {/* Sección: Detalles Físicos */}
-                  <h3 style={{ marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Detalles Físicos</h3>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px 24px', marginBottom: '24px' }}>
-                    {/* ... todos los campos de Detalles Físicos como estaban ... */}
-                    <div>
-                      <label htmlFor="edit_peso_kg" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Peso (kg)*</label>
-                      <input type="number" name="peso_kg" id="edit_peso_kg" value={editEquipoForm.peso_kg || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                     {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
-                    <div>
-                      <label htmlFor="edit_dimensiones.largo_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Largo (cm)</label>
-                      <input type="number" name="dimensiones.largo_cm" id="edit_dimensiones.largo_cm" value={editEquipoForm.dimensiones?.largo_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    <div>
-                      <label htmlFor="edit_dimensiones.ancho_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Ancho (cm)</label>
-                      <input type="number" name="dimensiones.ancho_cm" id="edit_dimensiones.ancho_cm" value={editEquipoForm.dimensiones?.ancho_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    <div>
-                      <label htmlFor="edit_dimensiones.alto_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Alto (cm)</label>
-                      <input type="number" name="dimensiones.alto_cm" id="edit_dimensiones.alto_cm" value={editEquipoForm.dimensiones?.alto_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
+                  {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
+                  <div>
+                    <label htmlFor="edit_codigo_ea" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Código EA</label>
+                    <input type="text" name="codigo_ea" id="edit_codigo_ea" value={editEquipoForm.codigo_ea || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
                   </div>
-                  
-                  {/* Sección: Clasificación y Origen */}
-                  <h3 style={{ marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Clasificación y Origen</h3>
-                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px 24px', marginBottom: '20px' }}>
-                    {/* ... todos los campos de Clasificación y Origen como estaban ... */}
-                    <div>
-                      <label htmlFor="edit_clasificacion_easysystems" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Clasificación EasySystems</label>
-                      <input type="text" name="clasificacion_easysystems" id="edit_clasificacion_easysystems" value={editEquipoForm.clasificacion_easysystems || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
-                    <div>
-                      <label htmlFor="edit_codigo_ea" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Código EA</label>
-                      <input type="text" name="codigo_ea" id="edit_codigo_ea" value={editEquipoForm.codigo_ea || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    <div>
-                      <label htmlFor="edit_proveedor" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Proveedor</label>
-                      <input type="text" name="proveedor" id="edit_proveedor" value={editEquipoForm.proveedor || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                     <div>
-                      <label htmlFor="edit_procedencia" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Procedencia</label>
-                      <input type="text" name="procedencia" id="edit_procedencia" value={editEquipoForm.procedencia || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                    <div>
-                      <label htmlFor="edit_tipo" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Tipo</label>
-                      <input type="text" name="tipo" id="edit_tipo" value={editEquipoForm.tipo || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                    </div>
-                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '20px' }}> 
-                        <input type="checkbox" name="es_opcional" id="edit_es_opcional" checked={editEquipoForm.es_opcional || false} onChange={handleEditEquipoFormChange} style={{transform: 'scale(1.3)'}} />
-                        <label htmlFor="edit_es_opcional" style={{fontSize: '13px', fontWeight: 500, marginBottom:0}}>Es Opcional</label>
-                    </div>
+                  <div>
+                    <label htmlFor="edit_proveedor" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Proveedor</label>
+                    <input type="text" name="proveedor" id="edit_proveedor" value={editEquipoForm.proveedor || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
                   </div>
-                  {editError && <p style={{ color: 'red', gridColumn: '1 / -1', fontSize: '13px', textAlign: 'center' }}>Error: {editError}</p>}
+                   <div>
+                    <label htmlFor="edit_procedencia" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Procedencia</label>
+                    <input type="text" name="procedencia" id="edit_procedencia" value={editEquipoForm.procedencia || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                  <div>
+                    <label htmlFor="edit_tipo" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Tipo</label>
+                    <input type="text" name="tipo" id="edit_tipo" value={editEquipoForm.tipo || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
+                  </div>
+                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '20px' }}> 
+                      <input type="checkbox" name="es_opcional" id="edit_es_opcional" checked={editEquipoForm.es_opcional || false} onChange={handleEditEquipoFormChange} style={{transform: 'scale(1.3)'}} />
+                      <label htmlFor="edit_es_opcional" style={{fontSize: '13px', fontWeight: 500, marginBottom:0}}>Es Opcional</label>
+                  </div>
                 </div>
+                {editError && <p style={{ color: 'red', gridColumn: '1 / -1', fontSize: '13px', textAlign: 'center' }}>Error: {editError}</p>}
+              </div>
 
-                <div style={unifiedFooterStyle}> {/* Footer se mantiene igual */}
-                  <button type="button" onClick={handleCloseEditModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
-                  <button type="submit" disabled={isSubmittingEdit} style={isSubmittingEdit ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#3B82F6', color: 'white', borderColor: '#1D4ED8' }}>
-                    {isSubmittingEdit ? 'Guardando...' : 'Guardar Cambios'}
-                  </button>
-                </div>
-              </form>
+              <div style={unifiedFooterStyle}> {/* Footer se mantiene igual */}
+                <button type="button" onClick={handleCloseEditModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
+                <button type="submit" disabled={isSubmittingEdit} style={isSubmittingEdit ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#3B82F6', color: 'white', borderColor: '#1D4ED8' }}>
+                  {isSubmittingEdit ? 'Guardando...' : 'Guardar Cambios'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showConfirmDeleteModal && equipoParaEliminar && ( 
+          <div style={unifiedModalOverlayStyle}>
+            <div style={{...unifiedModalContentStyle, maxWidth: '450px'}}>
+              <div style={unifiedHeaderStyle}>
+                <h3 style={unifiedTitleStyle}><Trash2 size={20} style={{marginRight: '8px'}}/>Confirmar Eliminación</h3>
+                <button onClick={handleCloseConfirmDeleteModal} style={unifiedCloseButtonStyle}><X size={16}/></button>
+              </div>
+              <div style={unifiedBodyStyle}>
+                <p>¿Estás seguro de que quieres eliminar el equipo "{equipoParaEliminar.nombre_del_producto || equipoParaEliminar.codigo_producto}"?</p>
+                <p style={{fontSize: '13px', color: '#6B7280'}}>Esta acción no se puede deshacer.</p>
+                {deleteError && <p style={{ color: 'red', fontSize: '13px', marginTop: '12px' }}>Error: {deleteError}</p>}
+              </div>
+              <div style={{...unifiedFooterStyle, justifyContent: 'flex-end'}}>
+                <button onClick={handleCloseConfirmDeleteModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
+                <button onClick={handleConfirmDelete} disabled={isDeleting} style={isDeleting ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#EF4444', color: 'white', borderColor: '#DC2626'}}>
+                  {isDeleting ? 'Eliminando...' : 'Eliminar'}
+                </button>
+              </div>
             </div>
           </div>
-        )}
+      )}
 
-        {showConfirmDeleteModal && equipoParaEliminar && ( 
-            <div style={unifiedModalOverlayStyle}>
-              <div style={{...unifiedModalContentStyle, maxWidth: '450px'}}>
-                <div style={unifiedHeaderStyle}>
-                  <h3 style={unifiedTitleStyle}><Trash2 size={20} style={{marginRight: '8px'}}/>Confirmar Eliminación</h3>
-                  <button onClick={handleCloseConfirmDeleteModal} style={unifiedCloseButtonStyle}><X size={16}/></button>
-                </div>
-                <div style={unifiedBodyStyle}>
-                  <p>¿Estás seguro de que quieres eliminar el equipo "{equipoParaEliminar.nombre_del_producto || equipoParaEliminar.codigo_producto}"?</p>
-                  <p style={{fontSize: '13px', color: '#6B7280'}}>Esta acción no se puede deshacer.</p>
-                  {deleteError && <p style={{ color: 'red', fontSize: '13px', marginTop: '12px' }}>Error: {deleteError}</p>}
-                </div>
-                <div style={{...unifiedFooterStyle, justifyContent: 'flex-end'}}>
-                  <button onClick={handleCloseConfirmDeleteModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
-                  <button onClick={handleConfirmDelete} disabled={isDeleting} style={isDeleting ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#EF4444', color: 'white', borderColor: '#DC2626'}}>
-                    {isDeleting ? 'Eliminando...' : 'Eliminar'}
-                  </button>
-                </div>
+      {/* --- MODAL VER DETALLE (Modificado con Animación) --- */}
+      {showDetalleModal && detalleProducto && (
+        <motion.div // <<< Envolver overlay con motion.div >>>
+          className="modal-overlay"
+          style={unifiedModalOverlayStyle}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <motion.div // <<< Envolver contenido con motion.div >>>
+            className="modal-content hover-scale" 
+            style={{ ...unifiedModalContentStyle, maxWidth: '900px' }} 
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
+          >
+            <div style={unifiedHeaderStyle}>
+              <div style={unifiedTitleStyle}>
+                <Info size={20} />
+                <h2>Detalles Técnicos: {detalleProducto.nombre_del_producto || detalleProducto.codigo_producto || 'Equipo'}</h2>
               </div>
+              <button onClick={handleCloseDetalleModal} className="button-hover" style={unifiedCloseButtonStyle}>
+                <X size={16} />
+              </button>
             </div>
-        )}
+            <div style={{...unifiedBodyStyle, maxHeight: 'calc(85vh - 110px)'}}>
+              {renderSpecifications(detalleProducto.especificaciones_tecnicas)}
+            </div>
+            <div style={unifiedFooterStyle}>
+              <button onClick={handleCloseDetalleModal} style={unifiedSecondaryButtonStyle}>
+                Cerrar
+              </button>
+            </div>
+          </motion.div> 
+        </motion.div>
+      )}
+      {/* --- FIN MODAL VER DETALLE --- */}
 
-        {/* --- MODAL VER DETALLE (Modificado con Animación) --- */}
-        {showDetalleModal && detalleProducto && (
-          <motion.div // <<< Envolver overlay con motion.div >>>
-            className="modal-overlay"
-            style={unifiedModalOverlayStyle}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <motion.div // <<< Envolver contenido con motion.div >>>
-              className="modal-content hover-scale" 
-              style={{ ...unifiedModalContentStyle, maxWidth: '900px' }} 
-              initial={{ opacity: 0, scale: 0.95, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            >
-              <div style={unifiedHeaderStyle}>
-                <div style={unifiedTitleStyle}>
-                  <Info size={20} />
-                  <h2>Detalles Técnicos: {detalleProducto.nombre_del_producto || detalleProducto.codigo_producto || 'Equipo'}</h2>
-                </div>
-                <button onClick={handleCloseDetalleModal} className="button-hover" style={unifiedCloseButtonStyle}>
-                  <X size={16} />
-                </button>
-              </div>
-              <div style={{...unifiedBodyStyle, maxHeight: 'calc(85vh - 110px)'}}>
-                {renderSpecifications(detalleProducto.especificaciones_tecnicas)}
-              </div>
-              <div style={unifiedFooterStyle}>
-                <button onClick={handleCloseDetalleModal} style={unifiedSecondaryButtonStyle}>
-                  Cerrar
-                </button>
-              </div>
-            </motion.div> 
-          </motion.div>
-        )}
-        {/* --- FIN MODAL VER DETALLE --- */}
-
-        {showVistaOpcionalesModal && productoParaVistaOpcionales && (
+      {showVistaOpcionalesModal && productoParaVistaOpcionales && (
+        <motion.div
+          className="modal-overlay"
+          style={unifiedModalOverlayStyle}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        >
           <motion.div
-            className="modal-overlay"
-            style={unifiedModalOverlayStyle}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
+            className="modal-content hover-scale"
+            style={{ ...unifiedModalContentStyle, maxWidth: '750px' }} // Ancho similar a Ver Detalles
+            initial={{ opacity: 0, scale: 0.95, y: -20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: -20 }}
+            transition={{ duration: 0.3, ease: "easeOut" }}
           >
-            <motion.div
-              className="modal-content hover-scale"
-              style={{ ...unifiedModalContentStyle, maxWidth: '750px' }} // Ancho similar a Ver Detalles
-              initial={{ opacity: 0, scale: 0.95, y: -20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: -20 }}
-              transition={{ duration: 0.3, ease: "easeOut" }}
-            >
-              <div style={unifiedHeaderStyle}>
-                <div style={unifiedTitleStyle}>
-                  <ListFilter size={20} />
-                  <h2>Opcionales para: {productoParaVistaOpcionales.nombre_del_producto || productoParaVistaOpcionales.codigo_producto}</h2>
-                </div>
-                <button onClick={handleCloseModal} className="button-hover" style={unifiedCloseButtonStyle}>
-                  <X size={16} />
-                </button>
+            <div style={unifiedHeaderStyle}>
+              <div style={unifiedTitleStyle}>
+                <ListFilter size={20} />
+                <h2>Opcionales para: {productoParaVistaOpcionales.nombre_del_producto || productoParaVistaOpcionales.codigo_producto}</h2>
               </div>
-              <div style={{ ...unifiedBodyStyle, maxHeight: 'calc(80vh - 110px)' }}>
-                {vistaOpcionalesLoading && <p style={{ textAlign: 'center', padding: '20px' }}>Cargando opcionales...</p>}
-                {vistaOpcionalesError && <p style={{ textAlign: 'center', padding: '20px', color: 'red' }}>Error: {vistaOpcionalesError}</p>}
-                {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length === 0 && (
-                  <p style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>No se encontraron opcionales para este producto.</p>
-                )}
-                {/* <<< INICIO DEBUG >>> */}
-                {(() => { console.log('[DEBUG] vistaOpcionalesData:', vistaOpcionalesData); return null; })()}
-                {/* <<< FIN DEBUG >>> */}
-                {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length > 0 && (
-                  <div style={unifiedTableContainerStyle}>
-                    <table style={{ ...unifiedTableStyle, fontSize: '13px' }}>
-                      <thead>
-                        <tr style={{ backgroundColor: '#f9fafb' }}>
-                          <th style={{ ...unifiedThStyle, width: '100px' }}>Código</th>
-                          <th style={unifiedThStyle}>Nombre del Opcional</th>
-                          <th style={unifiedThStyle}>Modelo</th>
-                          <th style={{...unifiedThStyle, width: '150px'}}>Tipo Producto</th>
+              <button onClick={handleCloseModal} className="button-hover" style={unifiedCloseButtonStyle}>
+                <X size={16} />
+              </button>
+            </div>
+            <div style={{ ...unifiedBodyStyle, maxHeight: 'calc(80vh - 110px)' }}>
+              {vistaOpcionalesLoading && <p style={{ textAlign: 'center', padding: '20px' }}>Cargando opcionales...</p>}
+              {vistaOpcionalesError && <p style={{ textAlign: 'center', padding: '20px', color: 'red' }}>Error: {vistaOpcionalesError}</p>}
+              {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length === 0 && (
+                <p style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>No se encontraron opcionales para este producto.</p>
+              )}
+              {/* <<< INICIO DEBUG >>> */}
+              {(() => { console.log('[DEBUG] vistaOpcionalesData:', vistaOpcionalesData); return null; })()}
+              {/* <<< FIN DEBUG >>> */}
+              {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length > 0 && (
+                <div style={unifiedTableContainerStyle}>
+                  <table style={{ ...unifiedTableStyle, fontSize: '13px' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#f9fafb' }}>
+                        <th style={{ ...unifiedThStyle, width: '100px' }}>Código</th>
+                        <th style={unifiedThStyle}>Nombre del Opcional</th>
+                        <th style={unifiedThStyle}>Modelo</th>
+                        <th style={{...unifiedThStyle, width: '150px'}}>Tipo Producto</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {vistaOpcionalesData.map((opcional, index) => (
+                        <tr key={opcional.codigo_producto || `opc-${index}`} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                          <td style={unifiedTdStyle}>{opcional.codigo_producto || '-'}</td>
+                          {/* Ajuste para tomar nombre_del_producto de caracteristicas primero */}
+                          <td style={unifiedTdStyle}>{opcional.caracteristicas?.nombre_del_producto || opcional.nombre_del_producto || '-'}</td>
+                          <td style={unifiedTdStyle}>{opcional.Modelo || opcional.caracteristicas?.modelo || '-'}</td>
+                          <td style={unifiedTdStyle}>{opcional.producto || '-'}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {vistaOpcionalesData.map((opcional, index) => (
-                          <tr key={opcional.codigo_producto || `opc-${index}`} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                            <td style={unifiedTdStyle}>{opcional.codigo_producto || '-'}</td>
-                            {/* Ajuste para tomar nombre_del_producto de caracteristicas primero */}
-                            <td style={unifiedTdStyle}>{opcional.caracteristicas?.nombre_del_producto || opcional.nombre_del_producto || '-'}</td>
-                            <td style={unifiedTdStyle}>{opcional.Modelo || opcional.caracteristicas?.modelo || '-'}</td>
-                            <td style={unifiedTdStyle}>{opcional.producto || '-'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-              <div style={unifiedFooterStyle}>
-                <button onClick={handleCloseModal} style={unifiedSecondaryButtonStyle}>
-                  Cerrar
-                </button>
-              </div>
-            </motion.div>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+            <div style={unifiedFooterStyle}>
+              <button onClick={handleCloseModal} style={unifiedSecondaryButtonStyle}>
+                Cerrar
+              </button>
+            </div>
           </motion.div>
-        )}
+        </motion.div>
+      )}
 
-      </div> 
-    </PageLayout>
+    </div> 
   );
 } 

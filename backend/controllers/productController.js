@@ -436,11 +436,29 @@ const getOptionalProducts = async (req, res) => {
 
     console.log(`Encontrados ${opcionalesFiltrados.length} opcionales filtrados finales.`);
 
+    const opcionalesParaFrontend = opcionalesFiltrados.map(op => {
+      const mapped = {
+        ...op, // Spread all original properties first
+        codigo_producto: op.Codigo_Producto,
+        nombre_del_producto: op.caracteristicas?.nombre_del_producto,
+        // Prioritize caracteristicas.descripcion, then root op.descripcion, then root op.Descripcion
+        Descripcion: op.caracteristicas?.descripcion || op.descripcion || op.Descripcion,
+        // Prioritize caracteristicas.modelo, then root op.modelo, then root op.Modelo
+        Modelo: op.caracteristicas?.modelo || op.modelo || op.Modelo,
+      };
+      
+      // Clean up by removing the original capitalized version if it was mapped and the new one exists
+      if (op.hasOwnProperty('Codigo_Producto') && mapped.codigo_producto !== undefined) {
+        delete mapped.Codigo_Producto; 
+      }
+      return mapped;
+    });
+
     res.status(200).json({
       success: true,
       data: {
-        total: opcionalesFiltrados.length,
-        products: opcionalesFiltrados
+        total: opcionalesParaFrontend.length,
+        products: opcionalesParaFrontend
       },
       timestamp: new Date().toISOString()
     });

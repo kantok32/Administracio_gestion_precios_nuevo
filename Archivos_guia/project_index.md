@@ -19,7 +19,8 @@ El proyecto consiste en una aplicación web para la administración y gestión d
 │   ├── AI_PROJECT_GUIDE.md # Guía del proyecto AI
 │   ├── logica_costo_producto.md # Lógica de cálculo de costos (Confirmado)
 │   ├── Costo de Producto.docx # Documento relacionado con costos (Confirmado)
-│   └── solucion_problemas_comunes_extendido.md # Guía extendida para solución de problemas comunes
+│   ├── solucion_problemas_comunes_extendido.md # Guía extendida para solución de problemas comunes
+│   └── funcionalidades_proyecto.md # Funcionalidades del proyecto y archivos implicados (Actualizado)
 ├── backend/        # Código del servidor backend (Node.js/Express)
 ├── frontend/       # Código de la aplicación frontend (React/Vite)
 ├── node_modules/   # Dependencias de Node.js (nivel raíz, posiblemente para scripts)
@@ -40,19 +41,19 @@ Aplicación Node.js con Express.
 ```
 backend/
 ├── config/         # Archivos de configuración (e.g., db.js, env.js)
-├── controllers/    # Lógica de negocio (e.g., costoPerfilController.js, productController.js)
+├── controllers/    # Lógica de negocio (e.g., costoPerfilController.js, productController.js, ¿productoController.js?)
 ├── data/           # Posiblemente datos estáticos o iniciales
 ├── middleware/     # Middlewares de Express (e.g., errorMiddleware.js, authMiddleware.js)
-├── models/         # Modelos de datos (probablemente Mongoose) (e.g., CostoPerfil.js)
+├── models/         # Modelos de datos (probablemente Mongoose) (e.g., CostoPerfil.js, Producto.js, Conversation.js)
 ├── node_modules/   # Dependencias del backend
-├── routes/         # Definición de rutas API (e.g., costoPerfilRoutes.js, productRoutes.js)
+├── routes/         # Definición de rutas API (e.g., costoPerfilRoutes.js, productRoutes.js, ¿productoRoutes.js?, langchainRoutes.js)
 ├── src/            # Código fuente adicional del backend (Añadido)
-├── utils/          # Funciones de utilidad
+├── utils/          # Funciones de utilidad (e.g., fetchProducts.js para Langchain)
 ├── server.js       # Punto de entrada principal del servidor
 ├── package.json    # Dependencias y scripts del backend
 ├── package-lock.json # Versiones exactas de dependencias del backend
 ├── Plantilla_Carga_Equipos.xlsx # Plantilla Excel para carga de equipos (Confirmado)
-└── Plantilla_Carga_Especificaciones.xlsx # Plantilla XLSX para carga de especificaciones (Actualizado)
+└── Plantilla_Carga_Especificaciones.xlsx # Plantilla XLSX para carga de especificaciones (Confirmado como .xlsx)
 ```
 
 ### Puntos Clave del Backend
@@ -60,12 +61,13 @@ backend/
 *   **Punto de entrada:** `server.js` inicializa Express, conecta a la BD, configura middlewares y monta las rutas.
 *   **Rutas API Principales:**
     *   `/api/users`: Autenticación y gestión de usuarios (`routes/userRoutes.js`).
-    *   `/api/products`: Gestión y obtención de productos y divisas (`routes/productRoutes.js`).
+    *   `/api/products`: Gestión y obtención de productos y divisas (`routes/productRoutes.js`). Podría existir una ruta `routes/productoRoutes.js` con funcionalidad más específica o legada.
     *   `/api/costo-perfiles`: CRUD para perfiles de costo (`routes/costoPerfilRoutes.js`). Controlado por `controllers/costoPerfilController.js`.
-    *   `/api/langchain`: Rutas relacionadas con Langchain (`routes/langchainRoutes.js`).
+    *   `/api/langchain`: Rutas relacionadas con Langchain (`routes/langchainRoutes.js`). La lógica del agente y herramientas está definida directamente en este archivo.
 *   **Base de Datos:** Probablemente MongoDB, configurado en `config/db.js`.
-*   **Modelos:** Definidos en la carpeta `models/`. `CostoPerfil.js` es relevante para los perfiles.
-*   **Controladores:** Lógica para cada ruta en `controllers/`. `costoPerfilController.js` contiene la lógica para crear, leer, actualizar y eliminar perfiles de costo.
+*   **Modelos:** Definidos en la carpeta `models/`. `CostoPerfil.js`, `Producto.js` (para productos/equipos), `User.js` y `Conversation.js` (para Langchain) son relevantes.
+*   **Controladores:** Lógica para cada ruta en `controllers/`. `costoPerfilController.js` y `productController.js` son los principales. Existe `productoController.js` que podría ser legado o para funciones específicas. La lógica de Langchain no reside en un controlador dedicado.
+*   **Utilidades:** `utils/fetchProducts.js` es utilizado por las rutas de Langchain.
 
 ## Frontend (`./frontend/`)
 
@@ -78,9 +80,9 @@ frontend/
 ├── node_modules/   # Dependencias del frontend
 ├── public/         # Archivos estáticos públicos
 ├── src/            # Código fuente del frontend
-│   ├── components/ # Componentes reutilizables (e.g., ChatWidget.tsx)
-│   ├── pages/      # Componentes de página (vistas principales) (e.g., PerfilesPanel.tsx, PerfilEditForm.tsx)
-│   ├── services/   # Lógica para interactuar con la API backend
+│   ├── components/ # Componentes reutilizables (e.g., ChatWidget.tsx, Dashboard.tsx)
+│   ├── pages/      # Componentes de página (vistas principales) (e.g., PerfilesPanel.tsx, PerfilEditForm.tsx, EquiposPanel.tsx, CostosAdminPanel.tsx, CargaEquiposPanel.tsx, DashboardPanel.tsx)
+│   ├── services/   # Lógica para interactuar con la API backend (e.g., api.ts, perfilService.ts)
 │   ├── types/      # Definiciones de tipos TypeScript
 │   ├── App.css     # Estilos generales de App
 │   ├── App.tsx     # Componente raíz de la aplicación (layout principal)
@@ -107,15 +109,16 @@ frontend/
 *   **Punto de entrada:** `main.tsx` configura `react-router-dom` y renderiza el componente `App`.
 *   **Enrutamiento:** Definido en `main.tsx` usando `BrowserRouter` y `Routes`.
     *   Layout principal: `App.tsx`.
-    *   Rutas principales: `/equipos`, `/admin`, `/perfiles/:id/editar`, `/dashboard`.
-    *   Rutas de administración (`/admin`): Renderizadas dentro de `AdminPanel`.
-        *   `/admin/perfiles`: `PerfilesPanel.tsx` (Objetivo actual).
-        *   `/admin/costos`: `CostosAdminPanel.tsx`.
+    *   Rutas principales: `/equipos` (`EquiposPanel.tsx`), `/admin` (`AdminPanel.tsx`), `/perfiles/:id/editar` (`PerfilEditForm.tsx`), `/dashboard` (`DashboardPanel.tsx`).
+    *   Rutas de administración (`/admin`): Renderizadas dentro de `AdminPanel.tsx`.
+        *   `/admin/perfiles`: `PerfilesPanel.tsx` (Podría existir `PerfilesAdminPanel.tsx` como alternativa o complemento).
+        *   `/admin/costos`: `CostosAdminPanel.tsx` (Podría existir `CostosPanel.tsx` como alternativa o complemento).
         *   `/admin/carga-equipos`: `CargaEquiposPanel.tsx`.
+    *   Nuevas páginas identificadas: `DetallesEnvioPanel.tsx`, `DetallesCargaPanel.tsx` (funcionalidad específica a documentar).
     *   Edición de perfil: `/perfiles/:id/editar` renderiza `PerfilEditForm.tsx`.
 *   **Componente Principal:** `App.tsx` define el layout general (cabecera, barra lateral) y puede contener lógica global o estado compartido.
-*   **Páginas:** Los componentes principales para cada ruta están en `pages/`. `PerfilesPanel.tsx` es la página para `/admin/perfiles`.
-*   **Llamadas API:** Probablemente realizadas desde los componentes en `pages/` o a través de funciones definidas en `services/`.
+*   **Páginas:** Los componentes principales para cada ruta están en `pages/`.
+*   **Llamadas API:** Realizadas desde los componentes en `pages/` o a través de funciones definidas en `services/` (como `perfilService.ts` o el genérico `api.ts`).
 *   **Estilos:** Combinación de CSS (`index.css`, `App.css`) y posiblemente una librería UI como Material UI (`theme.ts`).
 
 ## Flujo de Trabajo para "Crear Perfil" (Objetivo Actual)

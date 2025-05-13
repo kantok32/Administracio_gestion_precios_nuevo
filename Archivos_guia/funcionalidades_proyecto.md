@@ -20,12 +20,12 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
 
 - **Descripción:** Permite crear, leer, actualizar y eliminar productos (referidos como "Equipos" en el frontend). También maneja información sobre divisas necesaria para los cálculos de costos.
 - **Backend:**
-    - Rutas: `backend/routes/productRoutes.js` (para `/api/products`)
-    - Controladores: `backend/controllers/productController.js`
-    - Modelos: `backend/models/Product.js` (nombre probable, verificar existencia y estructura para "Equipos")
+    - Rutas: `backend/routes/productRoutes.js` (principal, para `/api/products`). Existe también `backend/routes/productoRoutes.js` (con 'o'), posiblemente legado o para funcionalidad específica (ej. carga Excel antigua).
+    - Controladores: `backend/controllers/productController.js` (principal). Existe también `backend/controllers/productoController.js` (con 'o'), posiblemente legado o para funcionalidad específica.
+    - Modelos: `backend/models/Producto.js` (para productos/equipos).
 - **Frontend:**
-    - Componentes/Páginas: `frontend/src/pages/EquiposPanel.tsx` (o similar, para listar/gestionar equipos, según `project_index.md` la ruta es `/equipos`), componentes para mostrar detalles de productos.
-    - Servicios: Funciones para interactuar con la API de productos (Ej: `frontend/src/services/productService.ts` - nombre a confirmar).
+    - Componentes/Páginas: `frontend/src/pages/EquiposPanel.tsx` (para listar/gestionar equipos, ruta `/equipos`), componentes para mostrar detalles de productos.
+    - Servicios: Lógica para interactuar con API de productos probablemente en `frontend/src/services/api.ts` o directamente en los componentes (no existe `productService.ts` dedicado).
 
 ## 3. Gestión de Perfiles de Costo
 
@@ -35,18 +35,18 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
     - Controladores: `backend/controllers/costoPerfilController.js`
     - Modelos: `backend/models/CostoPerfil.js`
 - **Frontend:**
-    - Páginas: `frontend/src/pages/admin/PerfilesPanel.tsx` (accesible vía `/admin/perfiles`), `frontend/src/pages/PerfilEditForm.tsx` (accesible vía `/perfiles/:id/editar`).
-    - Servicios: Funciones para interactuar con la API de perfiles de costo (Ej: `frontend/src/services/costoPerfilService.ts` - nombre a confirmar).
+    - Páginas: `frontend/src/pages/admin/PerfilesPanel.tsx` (accesible vía `/admin/perfiles`). Existe también `frontend/src/pages/PerfilesAdminPanel.tsx` cuyo rol exacto (alternativa o complemento) necesita clarificación. `frontend/src/pages/PerfilEditForm.tsx` (accesible vía `/perfiles/:id/editar`).
+    - Servicios: Funciones para interactuar con la API de perfiles de costo en `frontend/src/services/perfilService.ts`.
 
 ## 4. Cálculo de Costos
 
 - **Descripción:** Implementa la lógica de negocio detallada en `Archivos_guia/logica_costo_producto.md` para determinar el costo final de un producto. Esta lógica se aplica en el backend, utilizando datos de productos, perfiles de costo y tipos de cambio.
 - **Backend:**
     - Controladores: Principalmente en `backend/controllers/costoPerfilController.js` y `backend/controllers/productController.js` donde se aplican o recuperan los cálculos.
-    - Modelos: `backend/models/CostoPerfil.js`, `backend/models/Product.js` (o donde se almacenen los datos base y los resultados de los cálculos).
+    - Modelos: `backend/models/CostoPerfil.js`, `backend/models/Producto.js`.
     - Utils: Podrían existir funciones de utilidad en `backend/utils/` para cálculos específicos o la obtención de tipos de cambio.
 - **Frontend:**
-    - Páginas/Componentes: `frontend/src/pages/admin/CostosAdminPanel.tsx` (para visualizar o gestionar aspectos generales de los costos), y cualquier componente que muestre precios o costos calculados de productos.
+    - Páginas/Componentes: `frontend/src/pages/admin/CostosAdminPanel.tsx` (para visualizar o gestionar aspectos generales de los costos, accesible vía `/admin/costos`). Existe también `frontend/src/pages/CostosPanel.tsx` cuyo rol exacto (alternativa o complemento) necesita clarificación. Cualquier componente que muestre precios o costos calculados de productos.
 
 ## 5. Carga Masiva de Datos
 
@@ -62,8 +62,10 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
 
 - **Descripción:** Incorpora funcionalidades basadas en Langchain, que podrían incluir un asistente de chat, herramientas de procesamiento de lenguaje natural, u otras capacidades de IA.
 - **Backend:**
-    - Rutas: `backend/routes/langchainRoutes.js` (para `/api/langchain`).
-    - Controladores: `backend/controllers/langchainController.js` (nombre probable, verificar existencia).
+    - Rutas: `backend/routes/langchainRoutes.js` (para `/api/langchain`). La lógica del agente, herramientas y llamadas a OpenAI residen directamente en este archivo.
+    - Controladores: No existe un `langchainController.js` dedicado.
+    - Modelos: `backend/models/Conversation.js` (para almacenar historiales de chat).
+    - Utils: `backend/utils/fetchProducts.js` es utilizado por las herramientas de Langchain para obtener información de productos.
 - **Frontend:**
     - Componentes: `frontend/src/components/ChatWidget.tsx` (mencionado en `project_index.md`).
 
@@ -74,8 +76,8 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
     - Componente Raíz: `frontend/src/App.tsx` (define el layout general y las rutas principales).
     - Rutas de Administración: Definidas en `frontend/src/main.tsx` bajo el path `/admin`.
     - Páginas del Panel de Administración:
-        - `frontend/src/pages/admin/PerfilesPanel.tsx` (para `/admin/perfiles`).
-        - `frontend/src/pages/admin/CostosAdminPanel.tsx` (para `/admin/costos`).
+        - `frontend/src/pages/admin/PerfilesPanel.tsx` (para `/admin/perfiles`). (Ver nota en sección 3 sobre `PerfilesAdminPanel.tsx`).
+        - `frontend/src/pages/admin/CostosAdminPanel.tsx` (para `/admin/costos`). (Ver nota en sección 4 sobre `CostosPanel.tsx`).
         - `frontend/src/pages/admin/CargaEquiposPanel.tsx` (para `/admin/carga-equipos`).
 
 ## 8. Documentación del Proyecto
@@ -86,4 +88,11 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
     - `Archivos_guia/AI_PROJECT_GUIDE.md`: Guía para la colaboración con el Asistente AI.
     - `Archivos_guia/logica_costo_producto.md`: Detalle del cálculo de costo de producto.
     - `Archivos_guia/Costo de Producto.docx`: Documento complementario sobre costos.
-    - `Archivos_guia/funcionalidades_proyecto.md`: Este mismo archivo, detallando funcionalidades y archivos implicados. 
+    - `Archivos_guia/funcionalidades_proyecto.md`: Este mismo archivo, detallando funcionalidades y archivos implicados.
+
+## 9. Nuevas Funcionalidades/Paneles (Pendientes de Documentación Detallada)
+
+- **Descripción:** Se han identificado nuevos paneles en el frontend cuya funcionalidad específica necesita ser explorada y documentada en detalle.
+- **Frontend:**
+    - `frontend/src/pages/DetallesEnvioPanel.tsx`: Probablemente relacionado con la gestión o visualización de detalles de envío.
+    - `frontend/src/pages/DetallesCargaPanel.tsx`: Probablemente relacionado con la gestión o visualización de detalles de procesos de carga de datos. 
