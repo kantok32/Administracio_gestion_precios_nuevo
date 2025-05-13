@@ -223,12 +223,12 @@ export default function EquiposPanel() {
   const [detalleProducto, setDetalleProducto] = useState<Producto | null>(null);
 
   // Estados para el modal de "Ver Opcionales" (el que se abre desde el botón de información en cada fila)
-  const [showVistaOpcionalesModal, setShowVistaOpcionalesModal] = useState(false);
-  const [productoParaVistaOpcionales, setProductoParaVistaOpcionales] = useState<Producto | null>(null);
-  const [vistaOpcionalesData, setVistaOpcionalesData] = useState<Producto[]>([]);
-  const [vistaOpcionalesLoading, setVistaOpcionalesLoading] = useState(false);
-  const [vistaOpcionalesError, setVistaOpcionalesError] = useState<string | null>(null);
-  const [loadingOpcionalesBtn, setLoadingOpcionalesBtn] = useState<string | null>(null);
+  // const [showVistaOpcionalesModal, setShowVistaOpcionalesModal] = useState(false); // ELIMINADO
+  // const [productoParaVistaOpcionales, setProductoParaVistaOpcionales] = useState<Producto | null>(null); // ELIMINADO
+  // const [vistaOpcionalesData, setVistaOpcionalesData] = useState<Producto[]>([]); // ELIMINADO
+  // const [vistaOpcionalesLoading, setVistaOpcionalesLoading] = useState(false); // ELIMINADO
+  // const [vistaOpcionalesError, setVistaOpcionalesError] = useState<string | null>(null); // ELIMINADO
+  // const [loadingOpcionalesBtn, setLoadingOpcionalesBtn] = useState<string | null>(null); // ELIMINADO
 
   // --- NUEVO: Estados para el Flujo de Cotización ---
   const [pasoCotizacion, setPasoCotizacion] = useState<number>(0); // 0: Tabla Equipos, 1: Detalles Carga, ...
@@ -342,73 +342,74 @@ export default function EquiposPanel() {
     }
   };
 
-  const handleOpcionales = async (producto: Producto) => {
-    console.log("Obteniendo opcionales (vista simple) para:", producto.codigo_producto, "Tipo DB:", producto.tipo, "Nombre:", producto.nombre_del_producto);
-    setProductoParaVistaOpcionales(producto);
-    // setShowVistaOpcionalesModal(true); // Mostrar modal solo si hay algo que cargar o un mensaje claro
+  // const handleOpcionales = async (producto: Producto) => {
+  //   console.log("Obteniendo opcionales (vista simple) para:", producto.codigo_producto, "Tipo DB:", producto.tipo, "Nombre:", producto.nombre_del_producto);
+  //   // setProductoParaVistaOpcionales(producto); // ELIMINADO
+  //   // setShowVistaOpcionalesModal(true); // Mostrar modal solo si hay algo que cargar o un mensaje claro // ELIMINADO
     
-    setVistaOpcionalesLoading(true);
-    setVistaOpcionalesError(null);
-    setVistaOpcionalesData([]);
-    setLoadingOpcionalesBtn(producto.codigo_producto || null);
+  //   // setVistaOpcionalesLoading(true); // ELIMINADO
+  //   // setVistaOpcionalesError(null); // ELIMINADO
+  //   // setVistaOpcionalesData([]); // ELIMINADO
+  //   // setLoadingOpcionalesBtn(producto.codigo_producto || null); // ELIMINADO
 
-    // Lógica de doble verificación para determinar si es opcional
-    const esTipoOpcionalDirecto = producto.tipo === 'opcional';
-    const tieneNombreOpcional = producto.nombre_del_producto && producto.nombre_del_producto.toLowerCase().includes('opcional');
+  //   // Lógica de doble verificación para determinar si es opcional
+  //   const esTipoOpcionalDirecto = producto.tipo === 'opcional';
+  //   const tieneNombreOpcional = producto.nombre_del_producto && producto.nombre_del_producto.toLowerCase().includes('opcional');
 
-    if (esTipoOpcionalDirecto || (!esTipoOpcionalDirecto && tieneNombreOpcional) ) {
-      // Si el tipo es 'opcional' O (el tipo no es 'opcional' PERO el nombre contiene 'opcional')
-      console.log("El producto se considera opcional (por tipo directo o por nombre). No se buscarán más opcionales para la vista simple.");
-      setVistaOpcionalesError('Este producto ya es un opcional y no tiene sub-opcionales.');
-      setVistaOpcionalesData([]);
-      setVistaOpcionalesLoading(false);
-      setLoadingOpcionalesBtn(null);
-      setShowVistaOpcionalesModal(true); // Mostrar modal para ver el mensaje
-      return;
-    }
+  //   if (esTipoOpcionalDirecto || (!esTipoOpcionalDirecto && tieneNombreOpcional) ) {
+  //     // Si el tipo es 'opcional' O (el tipo no es 'opcional' PERO el nombre contiene 'opcional')
+  //     console.log("El producto se considera opcional (por tipo directo o por nombre). No se buscarán más opcionales para la vista simple.");
+  //     // setVistaOpcionalesError('Este producto ya es un opcional y no tiene sub-opcionales.'); // ELIMINADO
+  //     // setVistaOpcionalesData([]); // ELIMINADO
+  //     // setVistaOpcionalesLoading(false); // ELIMINADO
+  //     // setLoadingOpcionalesBtn(null); // ELIMINADO
+  //     // setShowVistaOpcionalesModal(true); // Mostrar modal para ver el mensaje // ELIMINADO
+  //     return;
+  //   }
 
-    try {
-      if (!producto.codigo_producto) { // Solo el código del producto es necesario ahora
-        throw new Error('Falta el código del producto principal para obtener opcionales.');
-      }
-      const params = new URLSearchParams();
-      params.append('codigo', producto.codigo_producto);
-      // El modelo y la categoría ya no se envían como parámetros.
-      const url = `http://localhost:5001/api/products/opcionales?${params.toString()}`;
-      console.log('Consultando opcionales (vista simple):', url);
+  //   try {
+  //     if (!producto.codigo_producto) { // Solo el código del producto es necesario ahora
+  //       throw new Error('Falta el código del producto principal para obtener opcionales.');
+  //     }
+  //     const params = new URLSearchParams();
+  //     params.append('codigo', producto.codigo_producto);
+  //     // El modelo y la categoría ya no se envían como parámetros.
+  //     const url = `http://localhost:5001/api/products/opcionales?${params.toString()}`;
+  //     console.log('Consultando opcionales (vista simple):', url);
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
+  //     const controller = new AbortController();
+  //     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-      const response = await fetch(url, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
-      clearTimeout(timeoutId);
+  //     const response = await fetch(url, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
+  //     clearTimeout(timeoutId);
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error del servidor al obtener opcionales (vista simple): ${response.status}`);
-      }
-      const data = await response.json();
+  //     if (!response.ok) {
+  //       const errorData = await response.json().catch(() => ({}));
+  //       throw new Error(errorData.message || `Error del servidor al obtener opcionales (vista simple): ${response.status}`);
+  //     }
+  //     const data = await response.json();
 
-      if (data.success && data.data && Array.isArray(data.data.products)) {
-        setVistaOpcionalesData(data.data.products);
-      } else {
-        throw new Error('Formato de respuesta de opcionales inválido (vista simple)');
-      }
-    } catch (error: any) {
-      console.error('Error al obtener opcionales (vista simple):', error);
-      if (error.name === 'AbortError') {
-         setVistaOpcionalesError('La solicitud tardó demasiado.');
-      } else if (error.message.includes('Failed to fetch')) {
-        setVistaOpcionalesError('Error de conexión al obtener opcionales.');
-      } else {
-         setVistaOpcionalesError(error instanceof Error ? error.message : 'Error desconocido');
-      }
-      setVistaOpcionalesData([]);
-    } finally {
-      setVistaOpcionalesLoading(false);
-      setLoadingOpcionalesBtn(null);
-    }
-  };
+  //     if (data.success && data.data && Array.isArray(data.data.products)) {
+  //       // setVistaOpcionalesData(data.data.products); // ELIMINADO
+  //     } else {
+  //       throw new Error('Formato de respuesta de opcionales inválido (vista simple)');
+  //     }
+  //   } catch (error: any) {
+  //     console.error('Error al obtener opcionales (vista simple):', error);
+  //     if (error.name === 'AbortError') {
+  //        // setVistaOpcionalesError('La solicitud tardó demasiado.'); // ELIMINADO
+  //     } else if (error.message.includes('Failed to fetch')) {
+  //       // setVistaOpcionalesError('Error de conexión al obtener opcionales.'); // ELIMINADO
+  //     } else {
+  //        // setVistaOpcionalesError(error instanceof Error ? error.message : 'Error desconocido'); // ELIMINADO
+  //     }
+  //     // setVistaOpcionalesData([]); // ELIMINADO
+  //   } finally {
+  //     // setVistaOpcionalesLoading(false); // ELIMINADO
+  //     // setLoadingOpcionalesBtn(null); // ELIMINADO
+  //     // setShowVistaOpcionalesModal(true); // Asegurar que el modal se muestre // ELIMINADO
+  //   }
+  // };
 
   const handleConfigurar = async (producto: Producto) => {
     console.log("Abriendo selección de opcionales para:", producto.nombre_del_producto);
@@ -448,12 +449,12 @@ export default function EquiposPanel() {
     }
   };
   
-  const handleCloseModal = () => {
-    setShowVistaOpcionalesModal(false);
-    setProductoParaVistaOpcionales(null);
-    setVistaOpcionalesData([]);
-    setVistaOpcionalesError(null);
-  };
+  // const handleCloseModal = () => {
+  //   // setShowVistaOpcionalesModal(false); // ELIMINADO
+  //   // setProductoParaVistaOpcionales(null); // ELIMINADO
+  //   // setVistaOpcionalesData([]); // ELIMINADO
+  //   // setVistaOpcionalesError(null); // ELIMINADO
+  // };
   
   const fetchProductos = async () => {
     setLoading(true);
@@ -535,13 +536,22 @@ export default function EquiposPanel() {
   useEffect(() => {
     const handleEscKey = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-         if (showVistaOpcionalesModal) { handleCloseModal(); }
+         // if (showVistaOpcionalesModal) { handleCloseModal(); } // ELIMINADO
          if (showDetalleModal) { handleCloseDetalleModal(); }
+         // También podríamos querer cerrar otros modales aquí si están abiertos,
+         // como el de OpcionalesCotizacionModal (pasoCotizacion === 1)
+         // o los modales de Crear/Editar/Eliminar equipo.
+         if (pasoCotizacion === 1 && productoActualConfigurandoOpcionales) {
+          handleCerrarProcesoSeleccionOpcionalesGlobal(); // Cierra el modal de selección de opcionales de cotización
+         }
+         if (showCreateModal) { handleCloseCreateModal(); }
+         if (showEditModal) { handleCloseEditModal(); }
+         if (showConfirmDeleteModal) { handleCloseConfirmDeleteModal(); }
       }
     };
     window.addEventListener('keydown', handleEscKey);
     return () => { window.removeEventListener('keydown', handleEscKey); };
-  }, [showVistaOpcionalesModal, showDetalleModal]);
+  }, [showDetalleModal, pasoCotizacion, productoActualConfigurandoOpcionales, showCreateModal, showEditModal, showConfirmDeleteModal]); // Dependencias actualizadas
 
   const handleCloseDetalleModal = () => {
     setShowDetalleModal(false);
@@ -1221,7 +1231,6 @@ export default function EquiposPanel() {
                     <th style={{ padding: '12px 16px', textAlign: 'left' }}>Modelo</th>
                     <th style={{ padding: '12px 16px', textAlign: 'left' }}>Tipo</th>
                     <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Ver Detalle</th>
-                    <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Opcionales</th>
                     {isSelectionModeActive && (
                       <th style={{ padding: '12px 16px', textAlign: 'center', width: '100px' }}>Seleccionar</th>
                     )}
@@ -1278,18 +1287,6 @@ export default function EquiposPanel() {
                             disabled={loadingDetail === producto.codigo_producto}
                           >
                             {loadingDetail === producto.codigo_producto ? '...' : <Info size={18}/>}
-                          </button>
-                        </td>
-                        {/* Column: Opcionales */}
-                        <td style={{ padding: '12px', textAlign: 'center' }}>
-                          <button 
-                            title="Ver Opcionales" 
-                            className="button-hover" 
-                            style={{ padding: '6px', backgroundColor: 'transparent', color: '#059669', border: 'none', borderRadius: '50%', cursor: 'pointer'}} 
-                            onClick={() => handleOpcionales(producto)} 
-                            disabled={loadingOpcionalesBtn === producto.codigo_producto}
-                          >
-                            {loadingOpcionalesBtn === producto.codigo_producto ? '...' : <ListFilter size={18}/>}
                           </button>
                         </td>
                         {/* Column: Seleccionar (conditional) */}
@@ -1543,76 +1540,6 @@ export default function EquiposPanel() {
         </motion.div>
       )}
       {/* --- FIN MODAL VER DETALLE --- */}
-
-      {showVistaOpcionalesModal && productoParaVistaOpcionales && (
-        <motion.div
-          className="modal-overlay"
-          style={unifiedModalOverlayStyle}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <motion.div
-            className="modal-content hover-scale"
-            style={{ ...unifiedModalContentStyle, maxWidth: '750px' }} // Ancho similar a Ver Detalles
-            initial={{ opacity: 0, scale: 0.95, y: -20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: -20 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
-          >
-            <div style={unifiedHeaderStyle}>
-              <div style={unifiedTitleStyle}>
-                <ListFilter size={20} />
-                <h2>Opcionales para: {productoParaVistaOpcionales.nombre_del_producto || productoParaVistaOpcionales.codigo_producto}</h2>
-              </div>
-              <button onClick={handleCloseModal} className="button-hover" style={unifiedCloseButtonStyle}>
-                <X size={16} />
-              </button>
-            </div>
-            <div style={{ ...unifiedBodyStyle, maxHeight: 'calc(80vh - 110px)' }}>
-              {vistaOpcionalesLoading && <p style={{ textAlign: 'center', padding: '20px' }}>Cargando opcionales...</p>}
-              {vistaOpcionalesError && <p style={{ textAlign: 'center', padding: '20px', color: 'red' }}>Error: {vistaOpcionalesError}</p>}
-              {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length === 0 && (
-                <p style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>No se encontraron opcionales para este producto.</p>
-              )}
-              {/* <<< INICIO DEBUG >>> */}
-              {(() => { console.log('[DEBUG] vistaOpcionalesData:', vistaOpcionalesData); return null; })()}
-              {/* <<< FIN DEBUG >>> */}
-              {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length > 0 && (
-                <div style={unifiedTableContainerStyle}>
-                  <table style={{ ...unifiedTableStyle, fontSize: '13px' }}>
-                    <thead>
-                      <tr style={{ backgroundColor: '#f9fafb' }}>
-                        <th style={{ ...unifiedThStyle, width: '100px' }}>Código</th>
-                        <th style={unifiedThStyle}>Nombre del Opcional</th>
-                        <th style={unifiedThStyle}>Modelo</th>
-                        <th style={{...unifiedThStyle, width: '150px'}}>Tipo Producto</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {vistaOpcionalesData.map((opcional, index) => (
-                        <tr key={opcional.codigo_producto || `opc-${index}`} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                          <td style={unifiedTdStyle}>{opcional.codigo_producto || '-'}</td>
-                          {/* Ajuste para tomar nombre_del_producto de caracteristicas primero */}
-                          <td style={unifiedTdStyle}>{opcional.caracteristicas?.nombre_del_producto || opcional.nombre_del_producto || '-'}</td>
-                          <td style={unifiedTdStyle}>{opcional.Modelo || opcional.caracteristicas?.modelo || '-'}</td>
-                          <td style={unifiedTdStyle}>{opcional.producto || '-'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-            <div style={unifiedFooterStyle}>
-              <button onClick={handleCloseModal} style={unifiedSecondaryButtonStyle}>
-                Cerrar
-              </button>
-            </div>
-          </motion.div>
-        </motion.div>
-      )}
 
     </div> 
   );
