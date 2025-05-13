@@ -1233,17 +1233,26 @@ export default function EquiposPanel() {
                 <tbody>
                   {productos.map((producto, index) => {
                     // Lógica de doble verificación para el tipo a mostrar en la tabla principal
-                    let displayTipo: string = '-'; // Initialize with a default
-                    const esTipoOpcionalDirecto = producto.tipo === 'opcional';
-                    const tieneNombreOpcional = producto.nombre_del_producto && 
-                                              producto.nombre_del_producto.toLowerCase().includes('opcional');
+                    let displayTipo: string = '-'; // Default, will usually be overridden
+                    const nombreProductoNormalizado = producto.nombre_del_producto?.toLowerCase() || '';
+                    const tipoProductoNormalizado = producto.tipo?.toLowerCase() || '';
 
-                    if (esTipoOpcionalDirecto || tieneNombreOpcional) {
+                    const esOpcionalPorNombre = nombreProductoNormalizado.includes('opcional');
+                    const esOpcionalPorTipoDirecto = tipoProductoNormalizado === 'opcional';
+
+                    if (esOpcionalPorNombre || esOpcionalPorTipoDirecto) {
                       displayTipo = 'Opcional';
-                    } else if (producto.tipo) { // No es opcional por tipo ni nombre, pero producto.tipo existe
-                      displayTipo = producto.tipo.charAt(0).toUpperCase() + producto.tipo.slice(1);
+                    } else {
+                      // No es Opcional por nombre ni por tipo directo.
+                      // Será Equipo si el tipo es 'osi' o si el tipo está ausente/vacío.
+                      if (tipoProductoNormalizado === 'osi' || tipoProductoNormalizado === '') {
+                        displayTipo = 'Equipo';
+                      } else {
+                        // Tiene un tipo definido que no es 'opcional', 'osi', ni vacío.
+                        // Usar ese tipo, capitalizado.
+                        displayTipo = producto.tipo!.charAt(0).toUpperCase() + producto.tipo!.slice(1);
+                      }
                     }
-                    // Si no es opcional y producto.tipo no existe, displayTipo permanece como '-'
 
                     return (
                       <tr key={producto.codigo_producto || `prod-${index}-${Math.random()}`} className="table-row" style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
