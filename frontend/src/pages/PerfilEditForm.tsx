@@ -243,7 +243,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
              </AccordionSummary>
              <AccordionDetails sx={{ pt: 0, pb: 1 }}>
                  <Grid container spacing={2}>
-                     <Grid item xs={12} md={6}>{renderTextField('nombre', 'Nombre del Perfil', 'text', true)}</Grid>
+                     <Grid item xs={12} md={6}>{renderTextField('nombre_perfil', 'Nombre del Perfil', 'text', true)}</Grid>
                      <Grid item xs={12} md={6}>{renderTextField('descripcion', 'Descripción', 'text')}</Grid>
                      <Grid item xs={12}>
                         <FormControlLabel
@@ -266,7 +266,6 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
                      <Grid item xs={6} sm={4} md={3}>{renderTextField('costo_logistica_origen_eur', 'Costo Origen', 'number', false, 'EUR')}</Grid>
                      <Grid item xs={6} sm={4} md={3}>{renderTextField('flete_maritimo_usd', 'Flete Marítimo P.', 'number', false, 'USD')}</Grid>
                      <Grid item xs={6} sm={4} md={3}>{renderTextField('recargos_destino_usd', 'Recargos Destino', 'number', false, 'USD')}</Grid>
-                     <Grid item xs={6} sm={4} md={3}>{renderTextField('prima_seguro_usd', 'Prima Seguro', 'number', false, 'USD')}</Grid>
                      <Grid item xs={6} sm={4} md={3}>{renderTextField('tasa_seguro_pct', 'Tasa Seguro', 'number', false, '%')}</Grid>
                      <Grid item xs={6} sm={4} md={3}>{renderTextField('transporte_nacional_clp', 'Transp. Nacional', 'number', false, 'CLP')}</Grid>
                  </Grid>

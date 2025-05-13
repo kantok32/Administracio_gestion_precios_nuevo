@@ -75,6 +75,7 @@ export interface CostoPerfilData {
   // Timestamps
   createdAt?: string; 
   updatedAt?: string; 
+  activo?: boolean; // Añadido para el campo "activo"
 }
 
 

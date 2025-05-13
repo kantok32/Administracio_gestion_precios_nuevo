@@ -20,4 +20,5 @@ export interface Producto {
      fecha_cotizacion?: string | Date;
   };
   especificaciones_tecnicas?: Record<string, any>;
+  descontinuado?: boolean;
 }

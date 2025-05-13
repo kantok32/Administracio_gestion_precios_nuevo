@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, X, ArrowLeft, ArrowRight, Check, MessageCircle, PlusCircle, FileEdit, Trash2, RefreshCw, ListFilter, Mail, Edit3, ChevronDown, Info, Settings2 } from 'lucide-react';
+import { Search, Filter, X, ArrowLeft, ArrowRight, Check, MessageCircle, PlusCircle, FileEdit, Trash2, RefreshCw, ListFilter, Mail, Edit3, ChevronDown, Info, Settings2, Archive, ArchiveRestore } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import OpcionalesCotizacionModal from '../components/OpcionalesCotizacionModal';
 import DetallesCargaPanel from './DetallesCargaPanel';
@@ -242,6 +242,7 @@ export default function EquiposPanel() {
   const [vistaOpcionalesLoading, setVistaOpcionalesLoading] = useState(false);
   const [vistaOpcionalesError, setVistaOpcionalesError] = useState<string | null>(null);
   const [loadingOpcionalesBtn, setLoadingOpcionalesBtn] = useState<string | null>(null);
+  const [loadingDescontinuado, setLoadingDescontinuado] = useState<string | null>(null); // Nuevo estado
 
   // --- NUEVO: Estados para el Flujo de Cotización ---
   const [pasoCotizacion, setPasoCotizacion] = useState<number>(0); // 0: Tabla Equipos, 1: Detalles Carga, ...
@@ -256,7 +257,7 @@ export default function EquiposPanel() {
   // --- Estado para el modo de selección de equipos para cotización ---
   const [isSelectionModeActive, setIsSelectionModeActive] = useState<boolean>(false);
   // --- Estado para almacenar los códigos de los productos seleccionados para cotizar ---
-  const [productosSeleccionadosParaCotizar, setProductosSeleccionadosParaCotizar] = useState<string[]>([]);
+  const [productosSeleccionadosParaCotizar, setProductosSeleccionadosParaCotizar] = useState<Set<string>>(new Set());
   // --- NUEVO: Estado para la configuración secuencial de opcionales ---
   const [indiceProductoActualParaOpcionales, setIndiceProductoActualParaOpcionales] = useState<number | null>(null);
   const [opcionalesSeleccionadosPorProducto, setOpcionalesSeleccionadosPorProducto] = useState<Record<string, Producto[]>>({});
@@ -265,17 +266,19 @@ export default function EquiposPanel() {
   // --- NUEVO: Estado para el producto principal cuyos opcionales se están configurando ---
   const [productoActualConfigurandoOpcionales, setProductoActualConfigurandoOpcionales] = useState<Producto | null>(null);
 
+  // --- ESTADOS ADICIONALES PARA EL FLUJO DE CONFIGURACIÓN DE OPCIONALES DEL MODAL ---
+  const [showOpcionalesConfigModal, setShowOpcionalesConfigModal] = useState<boolean>(false);
+  const [productosParaConfigurarOpcionales, setProductosParaConfigurarOpcionales] = useState<Producto[]>([]);
+  const [productoPrincipalActualParaOpcionales, setProductoPrincipalActualParaOpcionales] = useState<Producto | null>(null);
+  const [opcionalesDisponiblesParaPrincipalActual, setOpcionalesDisponiblesParaPrincipalActual] = useState<Producto[]>([]);
+  const [loadingOpcionalesParaPrincipal, setLoadingOpcionalesParaPrincipal] = useState<boolean>(false);
+  // --- FIN ESTADOS ADICIONALES ---
+
   // --- NUEVO: Estados para los datos del OpcionalesCotizacionModal ---
   // Estos se llenarán dinámicamente para el productoActualConfigurandoOpcionales
   const [opcionalesDataModal, setOpcionalesDataModal] = useState<Producto[]>([]);
   const [opcionalesLoadingModal, setOpcionalesLoadingModal] = useState(false);
   const [opcionalesErrorModal, setOpcionalesErrorModal] = useState<string | null>(null);
-
-  // --- NUEVO: Estados para el Modal de CREAR Equipo ---
-  const [showCreateModal, setShowCreateModal] = useState<boolean>(false);
-  const [newEquipoForm, setNewEquipoForm] = useState<EquipoFormData>({});
-  const [isSubmittingCreate, setIsSubmittingCreate] = useState<boolean>(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   // --- NUEVO: Estados para el Modal de EDITAR Equipo ---
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
@@ -627,7 +630,9 @@ export default function EquiposPanel() {
   const avanzarConfiguracionOpcionales = (guardarOpcionalesActuales: Producto[] | null = null) => {
     if (indiceProductoActualParaOpcionales === null) return; // No debería pasar si se llama correctamente
 
-    const codigoProductoActual = productosSeleccionadosParaCotizar[indiceProductoActualParaOpcionales];
+    // Convertir el Set a un array para acceder por índice
+    const arrayProductosSeleccionadosParaCotizar = Array.from(productosSeleccionadosParaCotizar);
+    const codigoProductoActual = arrayProductosSeleccionadosParaCotizar[indiceProductoActualParaOpcionales];
 
     if (codigoProductoActual && guardarOpcionalesActuales) {
       setOpcionalesSeleccionadosPorProducto(prev => ({
@@ -643,9 +648,10 @@ export default function EquiposPanel() {
 
     const siguienteIndice = indiceProductoActualParaOpcionales + 1;
 
-    if (siguienteIndice < productosSeleccionadosParaCotizar.length) {
+    // Usar .size para Set, o .length si se refiere al array convertido
+    if (siguienteIndice < arrayProductosSeleccionadosParaCotizar.length) {
       setIndiceProductoActualParaOpcionales(siguienteIndice);
-      const siguienteCodigoProducto = productosSeleccionadosParaCotizar[siguienteIndice];
+      const siguienteCodigoProducto = arrayProductosSeleccionadosParaCotizar[siguienteIndice];
       const siguienteProducto = productosOriginales.find(p => p.codigo_producto === siguienteCodigoProducto);
       if (siguienteProducto) {
         console.log("Configurando opcionales para el SIGUIENTE producto:", siguienteProducto.nombre_del_producto);
@@ -665,14 +671,14 @@ export default function EquiposPanel() {
       console.log("Productos Principales Seleccionados (códigos):", productosSeleccionadosParaCotizar);
       console.log("Opcionales Seleccionados por Producto:", opcionalesSeleccionadosPorProducto);
       
-      const itemsParaDetalleCarga: ProductoConOpcionales[] = productosSeleccionadosParaCotizar.map(codigoPrincipal => {
+      const itemsParaDetalleCarga: ProductoConOpcionales[] = Array.from(productosSeleccionadosParaCotizar).map((codigoPrincipal: string) => {
         const principal = productosOriginales.find(p => p.codigo_producto === codigoPrincipal);
         const opcionales = opcionalesSeleccionadosPorProducto[codigoPrincipal] || [];
         return {
           principal: principal || {} as Producto, // Evitar undefined si no se encuentra
           opcionales: opcionales
         };
-      }).filter(item => item.principal && item.principal.codigo_producto); // Asegurarse que el principal es válido
+      }).filter((item: ProductoConOpcionales) => item.principal && item.principal.codigo_producto); // Asegurarse que el principal es válido
 
       console.log("Datos preparados para DetallesCargaPanel:", itemsParaDetalleCarga);
       setDatosParaDetallesCarga(itemsParaDetalleCarga);
@@ -776,91 +782,69 @@ export default function EquiposPanel() {
   // --- MODIFICADO: Al cerrar el modal de cotización/opcionales (OpcionalesCotizacionModal) ---
   // Esto se llama si el usuario cierra el modal (ej. con su botón 'X') ANTES de completar la selección de todos los productos.
   const handleCerrarProcesoSeleccionOpcionalesGlobal = () => { 
-      console.log("Proceso global de selección de opcionales cerrado/cancelado por el usuario.");
-      setIsSelectionModeActive(false); // Salir del modo de checkboxes si aún estaba activo (no debería)
-      setProductosSeleccionadosParaCotizar([]);
-      setOpcionalesSeleccionadosPorProducto({});
-      setIndiceProductoActualParaOpcionales(null);
-      setProductoActualConfigurandoOpcionales(null);
-      setDatosParaDetallesCarga([]);
-      
-      // Limpiar estados del modal
-      setOpcionalesDataModal([]);
-      setOpcionalesLoadingModal(false);
-      setOpcionalesErrorModal(null);
+    setShowOpcionalesConfigModal(false);
+    setProductoPrincipalActualParaOpcionales(null);
+    setProductosParaConfigurarOpcionales([]);
+    // setOpcionalesSeleccionadosPorProducto({}); // No limpiar aquí opcionalesSeleccionadosPorProducto, para mantener la selección si reabren
+    // Consolidar todos los opcionales seleccionados en opcionalesConfirmados
+    let consolidados: Producto[] = [];
+    Object.keys(opcionalesSeleccionadosPorProducto).forEach(codigoPrincipal => {
+      const principal = productosOriginales.find(p => p.codigo_producto === codigoPrincipal);
+      if (principal) {
+        const opcionalesDeEstePrincipal = opcionalesSeleccionadosPorProducto[codigoPrincipal] || [];
+        // const opcionalesDeEstePrincipal = Array.from(opcionalesSeleccionadosPorProducto[codigoPrincipal]) // Si fuera Set
+        //   .map(codigoOpcional => {
+        //     return productosOriginales.find(p => p.codigo_producto === codigoOpcional);
+        //   })
+        //   .filter(Boolean) as Producto[];
+        consolidados = [...consolidados, ...opcionalesDeEstePrincipal];
+      }
+    });
 
-      setPasoCotizacion(0); // Volver a la tabla de equipos
+    // Eliminar duplicados y asegurar que solo son opcionales (esto podría ser redundante si se maneja bien antes)
+    const opcionalesUnicos = Array.from(new Set(consolidados.map(op => op.codigo_producto)))
+        .map(codigo => consolidados.find(op => op.codigo_producto === codigo)!)
+        .filter(op => op.es_opcional); // Asegurarnos de que solo guardamos opcionales aquí
+
+    setOpcionalesConfirmados(opcionalesUnicos);
+    console.log("Opcionales confirmados globalmente: ", opcionalesUnicos);
+    
+    // Una vez consolidados, podemos avanzar al siguiente paso si es apropiado.
+    // Aquí, como ejemplo, avanzamos a DetallesCargaPanel (paso 1)
+    setPasoCotizacion(1); 
   };
 
   // --- NUEVA: Función para avanzar al siguiente producto principal para la selección de opcionales ---
   const avanzarAlSiguientePrincipalParaOpcionales = () => {
-    const siguienteIndice = (indiceProductoActualParaOpcionales ?? -1) + 1; // Inicia en 0 si es null
-
-    if (siguienteIndice < productosSeleccionadosParaCotizar.length) {
-      setIndiceProductoActualParaOpcionales(siguienteIndice);
-      const siguienteCodigoProducto = productosSeleccionadosParaCotizar[siguienteIndice];
-      const siguienteProducto = productosOriginales.find(p => p.codigo_producto === siguienteCodigoProducto);
-      
-      if (siguienteProducto) {
-        console.log(`Avanzando para configurar opcionales de: ${siguienteProducto.nombre_del_producto}`);
-        setProductoActualConfigurandoOpcionales(siguienteProducto);
-        // El useEffect se encargará de llamar a fetchOpcionalesParaProductoActual
-        // y el OpcionalesCotizacionModal se re-renderizará con el nuevo producto y sus opcionales.
-      } else {
-        console.error(`Error: Siguiente producto principal (${siguienteCodigoProducto}) no encontrado. Deteniendo el proceso.`);
-        handleCerrarProcesoSeleccionOpcionalesGlobal(); // Volver al inicio si hay un error grave
-      }
+    const currentIndex = productosParaConfigurarOpcionales.findIndex((p: Producto) => p.codigo_producto === productoPrincipalActualParaOpcionales?.codigo_producto);
+    if (currentIndex + 1 < productosParaConfigurarOpcionales.length) {
+      setProductoPrincipalActualParaOpcionales(productosParaConfigurarOpcionales[currentIndex + 1]);
     } else {
-      // Todos los productos principales han sido procesados para opcionales.
-      console.log("Todos los productos principales han tenido la oportunidad de configurar opcionales.");
-      
-      const itemsParaDetalleCargaCalc: ProductoConOpcionales[] = productosSeleccionadosParaCotizar.map(codigoPrincipal => {
-        const principal = productosOriginales.find(p => p.codigo_producto === codigoPrincipal);
-        const opcionales = opcionalesSeleccionadosPorProducto[codigoPrincipal] || []; // Usar los opcionales guardados
-        return {
-          principal: principal || {} as Producto,
-          opcionales: opcionales
-        };
-      }).filter(item => item.principal && item.principal.codigo_producto); 
-      
-      setDatosParaDetallesCarga(itemsParaDetalleCargaCalc);
-      console.log("Datos finales para Detalles de la Carga:", itemsParaDetalleCargaCalc);
-
-      setPasoCotizacion(2); // Ir a Detalles de la Carga
-      
-      // Limpiar estados de la configuración de opcionales actual
-      setIndiceProductoActualParaOpcionales(null);
-      setProductoActualConfigurandoOpcionales(null);
-      // No limpiar opcionalesSeleccionadosPorProducto aquí, se usó para datosParaDetallesCarga
-      // No limpiar productosSeleccionadosParaCotizar aquí, se usó para datosParaDetallesCarga
+      // Todos los principales han sido configurados
+      handleCerrarProcesoSeleccionOpcionalesGlobal();
     }
   };
 
   // --- MODIFICADO: Función para proceder a la selección de opcionales (cuando se hace clic en "Cotizar X Equipos")
   const handleProceedToOptionSelection = () => {
-    if (productosSeleccionadosParaCotizar.length === 0) {
-      // No debería llegar aquí si el botón "Cotizar" solo se activa con items > 0
-      // Pero es una buena guarda.
-      return;
-    }
+    const productosPrincipalesSeleccionados = productosOriginales.filter(p => 
+      productosSeleccionadosParaCotizar.has(p.codigo_producto!) && !p.es_opcional
+    );
 
-    setIsSelectionModeActive(false); // Salir del modo de selección con checkboxes visualmente, pero mantenemos los datos para el siguiente paso
-    setOpcionalesSeleccionadosPorProducto({}); 
-    setIndiceProductoActualParaOpcionales(0); // Empezar con el primer producto seleccionado
-
-    const primerCodigoProducto = productosSeleccionadosParaCotizar[0];
-    const primerProducto = productosOriginales.find(p => p.codigo_producto === primerCodigoProducto);
-    
-    if (primerProducto) {
-      setProductoActualConfigurandoOpcionales(primerProducto);
-      // El useEffect se encargará de buscar los opcionales del primerProducto
-      // y el OpcionalesCotizacionModal se mostrará porque pasoCotizacion será 1
-    } else {
-      console.error("No se encontró el primer producto para configurar opcionales. Volviendo al inicio.");
-      handleCerrarProcesoSeleccionOpcionalesGlobal(); // Resetear todo y volver al paso 0
+    if (productosPrincipalesSeleccionados.length === 0) {
+      // No hay productos principales seleccionados para cotizar.
+      // Esto no debería ocurrir si el botón que llama a esta función está deshabilitado.
+      // O, si no se requiere seleccionar opcionales, avanzar directamente.
+      console.log("No hay productos principales seleccionados para configurar opcionales.");
+      // Si no hay principales, pero sí opcionales directos (caso raro), o si simplemente se avanza
+      // setPasoCotizacion(1); // Avanzar a Detalles de Carga
       return; 
     }
-    setPasoCotizacion(1); // Cambiar al panel/vista de "Selección de Opcionales"
+
+    setProductosParaConfigurarOpcionales(productosPrincipalesSeleccionados);
+    setProductoPrincipalActualParaOpcionales(productosPrincipalesSeleccionados[0]);
+    setShowOpcionalesConfigModal(true); // Abrir el modal de configuración de opcionales
+    // La carga de opcionales para el primer producto se hará en el useEffect de productoPrincipalActualParaOpcionales
   };
 
   // --- Función para eliminar un opcional confirmado (desde DetallesCargaPanel) ---
@@ -893,7 +877,7 @@ export default function EquiposPanel() {
     setIsSelectionModeActive(prevIsActive => {
       if (prevIsActive) { 
         // Al salir del modo de selección, limpiar los equipos previamente seleccionados.
-        setProductosSeleccionadosParaCotizar([]);
+        setProductosSeleccionadosParaCotizar(new Set());
       }
       return !prevIsActive;
     });
@@ -902,62 +886,32 @@ export default function EquiposPanel() {
   // --- Función para manejar la selección/deselección de un producto para cotizar ---
   const handleToggleProductoParaCotizar = (codigoProducto: string) => {
     setProductosSeleccionadosParaCotizar(prevSeleccionados => {
-      if (prevSeleccionados.includes(codigoProducto)) {
-        return prevSeleccionados.filter(codigo => codigo !== codigoProducto);
+      const nuevosSeleccionados = new Set(prevSeleccionados);
+      if (nuevosSeleccionados.has(codigoProducto)) {
+        nuevosSeleccionados.delete(codigoProducto);
       } else {
-        return [...prevSeleccionados, codigoProducto];
+        nuevosSeleccionados.add(codigoProducto);
       }
+      return nuevosSeleccionados;
     });
-  };
+  }; 
 
-  // --- Funciones de navegación y cálculo de precios que fueron eliminadas accidentalmente ---
    const handleVolverDesdeDetalles = () => {
-    // Al volver desde DetallesCargaPanel, usualmente se quiere volver a la tabla de equipos
-    // o al inicio del proceso de selección de opcionales si se desea modificar.
-    // Por consistencia con handleCerrarProcesoSeleccionOpcionalesGlobal, reseteamos todo.
-    handleCerrarProcesoSeleccionOpcionalesGlobal(); 
+    setPasoCotizacion(0); // Volver a la tabla de equipos
+    // Limpiar estados relacionados con pasos posteriores si es necesario
+    // setDatosParaDetallesCarga([]); // Si esto se usa para pasar datos a DetallesCargaPanel
+    // setPricingResult(null);
+    // setPricingError(null);
   };
 
   const handleSiguienteDesdeDetalles = async () => {
     // Esta función se llama desde DetallesCargaPanel.
-    // Aquí se debería implementar la lógica para el siguiente paso, ej. Detalles de Envío.
-    // Y potencialmente el cálculo de precios para los itemsEnDetalleCarga.
-    console.log("Paso a Detalles de Envío/Cálculo de Precios...", datosParaDetallesCarga);
+    // En el nuevo flujo, después de DetallesCargaPanel, iríamos a DetallesEnvioPanel.
+    console.log("Pasando de Detalles de Carga a Detalles de Envío...");
+    setPasoCotizacion(2); // Asumiendo que 2 es DetallesEnvioPanel
     
-    // Lógica de ejemplo para el cálculo de precios (Placeholder)
-    if (datosParaDetallesCarga.length > 0) {
-      // Suponiendo que necesitamos el primer producto para la API de precios actual
-      const primerItem = datosParaDetallesCarga[0];
-      if (primerItem.principal.codigo_producto) {
-    setPricingLoading(true);
-    setPricingError(null);
-        setPricingResult(null);
-    try {
-      const result = await api.calculatePricing({ 
-            productCode: primerItem.principal.codigo_producto 
-            // Aquí se podría extender para enviar también los opcionales del primerItem
-            // o si la API soporta múltiples productos, enviar todos los datosParaDetallesCarga.
-          });
-          setPricingResult(result);
-          // setPasoCotizacion(3); // Suponiendo que 3 es DetallesEnvioPanel después del cálculo
-          console.log("Cálculo de precios simulado exitoso para el primer item.", result);
-          alert("Cálculo de precios (simulado) para el primer producto realizado. Ver consola. Siguiente paso no implementado.");
-          // Por ahora, no avanzamos a otro paso ya que DetallesEnvioPanel no está totalmente integrado
-          // en este nuevo flujo de múltiples productos.
-
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : "Error desconocido al calcular precios.";
-      setPricingError(errorMsg);
-          console.error("Error en cálculo de precios (simulado):", errorMsg);
-    } finally {
-      setPricingLoading(false);
-    }
-      } else {
-        setPricingError("El primer producto seleccionado no tiene código para calcular precios.");
-      }
-    } else {
-      setPricingError("No hay productos en Detalles de Carga para calcular precios.");
-    }
+    // Aquí NO se llama a la API de precios. Se haría en un paso posterior o donde corresponda.
+    // La lógica de precios que estaba aquí antes ha sido eliminada porque no pertenece a este manejador de navegación.
   };
 
   // Refrescar productos (reutilizable)
@@ -966,68 +920,68 @@ export default function EquiposPanel() {
   }, []); // fetchProductos debería estar envuelto en useCallback si es dependencia de otros useEffects, o ser estable.
 
   // --- NUEVO: Handlers para CREAR Equipo ---
-  const handleOpenCreateModal = () => {
-    setNewEquipoForm({}); // Limpiar formulario
-    setCreateError(null);
-    setShowCreateModal(true);
-  };
+  // const handleOpenCreateModal = () => {
+  //   setNewEquipoForm({}); // Limpiar formulario
+  //   setCreateError(null);
+  //   setShowCreateModal(true);
+  // };
 
-  const handleCloseCreateModal = () => {
-    setShowCreateModal(false);
-  };
+  // const handleCloseCreateModal = () => {
+  //   setShowCreateModal(false);
+  // };
 
-  const handleNewEquipoFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    // Para checkboxes
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
+  // const handleNewEquipoFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+  //   const { name, value, type } = e.target;
+  //   // Para checkboxes
+  //   const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
     
-    // Manejar campos anidados (ej. caracteristicas.nombre_del_producto)
-    if (name.includes('.')) {
-      const [objKey, fieldKey] = name.split('.');
-      setNewEquipoForm(prev => ({
-        ...prev,
-        [objKey]: {
-          ...(prev[objKey as keyof EquipoFormData] as object || {}),
-          [fieldKey]: val
-        }
-      }));
-    } else {
-      setNewEquipoForm(prev => ({ ...prev, [name]: val }));
-    }
-  };
+  //   // Manejar campos anidados (ej. caracteristicas.nombre_del_producto)
+  //   if (name.includes('.')) {
+  //     const [objKey, fieldKey] = name.split('.');
+  //     setNewEquipoForm(prev => ({
+  //       ...prev,
+  //       [objKey]: {
+  //         ...(prev[objKey as keyof EquipoFormData] as object || {}),
+  //         [fieldKey]: val
+  //       }
+  //     }));
+  //   } else {
+  //     setNewEquipoForm(prev => ({ ...prev, [name]: val }));
+  //   }
+  // };
 
-  const handleCreateEquipoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmittingCreate(true);
-    setCreateError(null);
-    try {
-      // Aquí puedes añadir transformaciones si los campos numéricos están como string
-      const payload = { ...newEquipoForm };
-      if (payload.peso_kg) payload.peso_kg = parseFloat(payload.peso_kg as string);
-      if (payload.dimensiones?.largo_cm) payload.dimensiones.largo_cm = parseFloat(payload.dimensiones.largo_cm as string);
-      if (payload.dimensiones?.ancho_cm) payload.dimensiones.ancho_cm = parseFloat(payload.dimensiones.ancho_cm as string);
-      if (payload.dimensiones?.alto_cm) payload.dimensiones.alto_cm = parseFloat(payload.dimensiones.alto_cm as string);
+  // const handleCreateEquipoSubmit = async (e: React.FormEvent) => {
+  //   e.preventDefault();
+  //   setIsSubmittingCreate(true);
+  //   setCreateError(null);
+  //   try {
+  //     // Aquí puedes añadir transformaciones si los campos numéricos están como string
+  //     const payload = { ...newEquipoForm };
+  //     if (payload.peso_kg) payload.peso_kg = parseFloat(payload.peso_kg as string);
+  //     if (payload.dimensiones?.largo_cm) payload.dimensiones.largo_cm = parseFloat(payload.dimensiones.largo_cm as string);
+  //     if (payload.dimensiones?.ancho_cm) payload.dimensiones.ancho_cm = parseFloat(payload.dimensiones.ancho_cm as string);
+  //     if (payload.dimensiones?.alto_cm) payload.dimensiones.alto_cm = parseFloat(payload.dimensiones.alto_cm as string);
 
-      const response = await fetch('http://localhost:5001/api/products', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const responseData = await response.json();
-      if (!response.ok) {
-        throw new Error(responseData.message || `Error del servidor: ${response.status}`);
-      }
-      console.log('Producto creado:', responseData.data);
-      alert('¡Equipo creado exitosamente!'); // Reemplazar con una notificación mejor
-      handleCloseCreateModal();
-      refreshProductos(); // Refrescar la lista de productos
-    } catch (error: any) {
-      console.error('Error al crear equipo:', error);
-      setCreateError(error.message || 'Ocurrió un error al crear el equipo.');
-    } finally {
-      setIsSubmittingCreate(false);
-    }
-  };
+  //     const response = await fetch('http://localhost:5001/api/products', {
+  //       method: 'POST',
+  //       headers: { 'Content-Type': 'application/json' },
+  //       body: JSON.stringify(payload)
+  //     });
+  //     const responseData = await response.json();
+  //     if (!response.ok) {
+  //       throw new Error(responseData.message || `Error del servidor: ${response.status}`);
+  //     }
+  //     console.log('Producto creado:', responseData.data);
+  //     alert('¡Equipo creado exitosamente!'); // Reemplazar con una notificación mejor
+  //     handleCloseCreateModal();
+  //     refreshProductos(); // Refrescar la lista de productos
+  //   } catch (error: any) {
+  //     console.error('Error al crear equipo:', error);
+  //     setCreateError(error.message || 'Ocurrió un error al crear el equipo.');
+  //   } finally {
+  //     setIsSubmittingCreate(false);
+  //   }
+  // };
 
   // --- Stubs para EDITAR y ELIMINAR (se implementarán después) ---
   const handleOpenEditModal = (producto: Producto) => {
@@ -1179,6 +1133,59 @@ export default function EquiposPanel() {
     }));
   };
 
+  const handleToggleDescontinuado = async (productoAActualizar: Producto) => {
+    if (!productoAActualizar.codigo_producto) {
+      console.error("El producto no tiene código para actualizar su estado de descontinuado.");
+      // Podrías mostrar una notificación de error aquí
+      return;
+    }
+
+    setLoadingDescontinuado(productoAActualizar.codigo_producto);
+    const nuevoEstadoDescontinuado = !productoAActualizar.descontinuado;
+
+    console.log(`Simulando actualización para ${productoAActualizar.codigo_producto}: descontinuado = ${nuevoEstadoDescontinuado}`);
+
+    // --- INICIO: Simulación de llamada API ---
+    // En un caso real, aquí harías la llamada a tu backend:
+    // try {
+    //   const response = await fetch(`/api/products/code/${productoAActualizar.codigo_producto}/toggle-discontinued`, { // O el endpoint que tengas
+    //     method: 'PUT', // o 'PATCH'
+    //     headers: { 'Content-Type': 'application/json' },
+    //     body: JSON.stringify({ descontinuado: nuevoEstadoDescontinuado }),
+    //   });
+    //   if (!response.ok) {
+    //     const errorData = await response.json();
+    //     throw new Error(errorData.message || 'Error al actualizar el estado del producto.');
+    //   }
+    //   // const updatedProduct = await response.json(); // Si el backend devuelve el producto actualizado
+    //   console.log('Producto actualizado (simulado) en backend');
+    //   refreshProductos(); // O actualizar el estado local de forma más específica
+    // } catch (error) {
+    //   console.error('Error al cambiar estado descontinuado:', error);
+    //   // Mostrar notificación de error al usuario
+    // } finally {
+    //   setLoadingDescontinuado(null);
+    // }
+    // --- FIN: Simulación de llamada API ---
+
+    // --- INICIO: Actualización local para simulación (REEMPLAZAR CON LLAMADA API REAL) ---
+    await new Promise(resolve => setTimeout(resolve, 700)); // Simular delay de red
+
+    setProductosOriginales(prev => 
+      prev.map(p => 
+        p.codigo_producto === productoAActualizar.codigo_producto 
+          ? { ...p, descontinuado: nuevoEstadoDescontinuado } 
+          : p
+      )
+    );
+    // Nota: setProductos se actualizará automáticamente por el useEffect que depende de productosOriginales.
+    
+    setLoadingDescontinuado(null);
+    console.log(`Estado local de ${productoAActualizar.codigo_producto} cambiado a descontinuado: ${nuevoEstadoDescontinuado}`);
+    // Aquí podrías mostrar una notificación de éxito
+    // --- FIN: Actualización local para simulación ---
+  };
+
   // JSX (movido de App.tsx, corresponde al <main>...</main>)
   if (pasoCotizacion === 1 && productoActualConfigurandoOpcionales) {
     // PASO 1: Selección de Opcionales (usando OpcionalesCotizacionModal)
@@ -1258,8 +1265,8 @@ export default function EquiposPanel() {
           let currentButtonStyle = {}; // Para sobreescribir colores/bordes específicos
 
           if (isSelectionModeActive) {
-            if (productosSeleccionadosParaCotizar.length > 0) {
-              const count = productosSeleccionadosParaCotizar.length;
+            if (productosSeleccionadosParaCotizar.size > 0) {
+              const count = productosSeleccionadosParaCotizar.size;
               if (count === 1) {
                 buttonText = "1 Seleccionado";
               } else {
@@ -1313,7 +1320,8 @@ export default function EquiposPanel() {
           );
         })()}
 
-        {/* Botón para CREAR Equipo con icono PlusCircle */}
+        {/* Botón para CREAR Equipo con icono PlusCircle --- ASEGURARSE QUE ESTÁ ELIMINADO O COMENTADO */}
+        {/*
         <motion.button 
           onClick={handleOpenCreateModal} 
           className="button-hover" 
@@ -1330,6 +1338,7 @@ export default function EquiposPanel() {
           <PlusCircle size={18} /> 
           Nuevo Equipo
         </motion.button>
+        */}
       </div>
 
       {/* NUEVA SECCIÓN PARA FILTROS DE COLUMNA */}
@@ -1364,7 +1373,7 @@ export default function EquiposPanel() {
             />
           </div>
         ))}
-      </div>
+      </div> 
 
       {/* Contador */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px'}}>
@@ -1424,8 +1433,21 @@ export default function EquiposPanel() {
                       }
                     }
 
+                    // Determinar el color de fondo de la fila
+                    let rowBackgroundColor = index % 2 === 0 ? 'white' : '#f9fafb'; // Alternating by default
+                    if (producto.descontinuado) {
+                      rowBackgroundColor = '#d1d5db'; // Gris más oscuro para descontinuados (era #e5e7eb)
+                    }
+
                     return (
-                      <tr key={producto.codigo_producto || `prod-${index}-${Math.random()}`} className="table-row" style={{ backgroundColor: index % 2 === 0 ? 'white' : '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
+                      <tr 
+                        key={producto.codigo_producto || `prod-${index}-${Math.random()}`} 
+                        className="table-row" 
+                        style={{ 
+                          backgroundColor: rowBackgroundColor, 
+                          borderBottom: '1px solid #e5e7eb' 
+                        }}
+                      >
                         {/* Column: Código */}
                         <td style={{ padding: '16px', textAlign: 'left' }}>{producto.codigo_producto || '-'}</td>
                         {/* Column: Nombre */}
@@ -1463,7 +1485,7 @@ export default function EquiposPanel() {
                           <td style={{ padding: '12px', textAlign: 'center' }}>
                             <input 
                               type="checkbox" 
-                              checked={productosSeleccionadosParaCotizar.includes(producto.codigo_producto || '')} 
+                              checked={productosSeleccionadosParaCotizar.has(producto.codigo_producto || '')} 
                               onChange={() => producto.codigo_producto && handleToggleProductoParaCotizar(producto.codigo_producto)} 
                               disabled={!producto.codigo_producto} 
                               style={{ transform: 'scale(1.3)', cursor: 'pointer'}} />
@@ -1472,6 +1494,24 @@ export default function EquiposPanel() {
                         {/* Column: Acciones (conditional) */}
                         {!isSelectionModeActive && (
                           <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            <button 
+                              title={producto.descontinuado ? "Reactivar Equipo" : "Descontinuar Equipo"}
+                              onClick={() => handleToggleDescontinuado(producto)} 
+                              disabled={loadingDescontinuado === producto.codigo_producto}
+                              style={{ 
+                                background: 'none', 
+                                border: 'none', 
+                                cursor: 'pointer', 
+                                color: producto.descontinuado ? '#22c55e' : '#f59e0b', // Verde para reactivar, Naranja/Amarillo para descontinuar
+                                padding: '6px', 
+                                marginRight: '10px', 
+                                verticalAlign: 'middle' 
+                              }}
+                            >
+                              {loadingDescontinuado === producto.codigo_producto 
+                                ? <RefreshCw size={18} className="animate-spin" /> 
+                                : producto.descontinuado ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+                            </button>
                             <button title="Editar Equipo" onClick={() => handleOpenEditModal(producto)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: '6px', marginRight: '10px', verticalAlign: 'middle' }}>
                               <FileEdit size={18} />
                             </button>
@@ -1491,40 +1531,6 @@ export default function EquiposPanel() {
       </div> 
 
       {/* Modales (Crear, Editar, Confirmar Eliminación, VerDetalle, VistaOpcionales) */}
-      {showCreateModal && ( 
-        <div className="modal-overlay" style={unifiedModalOverlayStyle}>
-          <div className="modal-content hover-scale" style={{ ...unifiedModalContentStyle, maxWidth: '700px' }}>
-            <form onSubmit={handleCreateEquipoSubmit}>
-               <div style={unifiedHeaderStyle}>
-                 <div style={unifiedTitleStyle}>
-                    <PlusCircle size={20} /> 
-                    <h2>Crear Nuevo Equipo</h2>
-                 </div>
-                 <button type="button" onClick={handleCloseCreateModal} className="button-hover" style={unifiedCloseButtonStyle}>
-                   <X size={16}/>
-                 </button>
-               </div>
-               <div style={{...unifiedBodyStyle, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px 24px' }}>
-                  {/* ... campos del formulario de creación ... */}
-                  <div><label>Código Producto*</label><input type="text" name="Codigo_Producto" value={newEquipoForm.Codigo_Producto || ''} onChange={handleNewEquipoFormChange} required /></div>
-                  <div><label>Nombre Producto*</label><input type="text" name="caracteristicas.nombre_del_producto" value={newEquipoForm.caracteristicas?.nombre_del_producto || ''} onChange={handleNewEquipoFormChange} required /></div>
-                  <div><label>Modelo*</label><input type="text" name="caracteristicas.modelo" value={newEquipoForm.caracteristicas?.modelo || ''} onChange={handleNewEquipoFormChange} required /></div>
-                  <div><label>Categoría (Interna)*</label><input type="text" name="caracteristicas.categoria" value={newEquipoForm.caracteristicas?.categoria || ''} onChange={handleNewEquipoFormChange} required /></div>
-                  <div style={{gridColumn: '1 / -1'}}><label>Descripción</label><textarea name="caracteristicas.descripcion" value={newEquipoForm.caracteristicas?.descripcion || ''} onChange={handleNewEquipoFormChange} /></div>
-                  <div><label>Peso (kg)*</label><input type="number" name="peso_kg" value={newEquipoForm.peso_kg || ''} onChange={handleNewEquipoFormChange} required /></div>
-                  {/* ...Añadir TODOS los demás campos requeridos por el backend para la creación ...*/}
-                  {createError && <p style={{ color: 'red', gridColumn: '1 / -1' }}>Error: {createError}</p>}
-               </div>
-               <div style={unifiedFooterStyle}>
-                 <button type="button" onClick={handleCloseCreateModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
-                 <button type="submit" disabled={isSubmittingCreate} style={isSubmittingCreate ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#10B981', color: 'white', borderColor: '#059669' }}>
-                  {isSubmittingCreate ? 'Creando...' : 'Crear Equipo'}
-                 </button>
-               </div>
-             </form>
-          </div>
-        </div>
-      )}
 
       {/* --- MODAL PARA EDITAR Equipo --- */}
       {showEditModal && equipoParaEditar && (
