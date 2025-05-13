@@ -4,8 +4,10 @@ import type { LucideProps } from 'lucide-react';
 import OpcionalesCotizacionModal from '../components/OpcionalesCotizacionModal';
 import DetallesCargaPanel from './DetallesCargaPanel';
 import DetallesEnvioPanel from './DetallesEnvioPanel';
-import type { Producto } from '../types/product';
+// import type { Producto } from '../types/product'; // <<< LÍNEA A ELIMINAR O COMENTAR
 import PageLayout from '../components/PageLayout';
+// Importar motion
+import { motion } from 'framer-motion';
 
 // Interfaces (copiadas de App.tsx)
 interface ApiResponse {
@@ -79,6 +81,51 @@ interface EquipoFormData {
   // ...otros campos que tu API de creación espere
 }
 
+// Interfaz Producto (Asegúrate de que esta es la principal que se usa)
+// Esta es una copia de la que estaba más arriba, ajustada.
+// Si tienes una central en src/types/product.ts, modifica esa.
+interface Producto {
+  _id?: string; // A menudo presente desde MongoDB
+  id?: string; // A veces usado como alias o transformación
+  codigo_producto?: string;
+  nombre_del_producto?: string;
+  descripcion?: string;
+  Modelo?: string; // Usado en la tabla principal y modal de opcionales
+  categoria?: string; // Usado en la tabla principal
+  tipo?: string; // Para "opcional" u otros tipos, usado en la tabla principal
+  producto?: string; // <--- CAMPO CLAVE PARA OPCIONALES Y LINTER
+  peso_kg?: number;
+  especificaciones_tecnicas?: any; // O una interfaz más detallada
+  caracteristicas?: {
+    nombre_del_producto?: string;
+    modelo?: string;
+    descripcion?: string;
+    categoria?: string;
+    [key: string]: any; // Para otros campos dentro de caracteristicas
+  };
+  datos_contables?: {
+    costo_fabrica_original_eur?: number;
+    costo_ano_cotizacion?: number;
+    [key: string]: any; // Para otros campos dentro de datos_contables
+  };
+  dimensiones?: {
+    largo_mm?: number;
+    ancho_mm?: number;
+    alto_mm?: number;
+    [key: string]: any; // Para otros campos dentro de dimensiones
+  };
+  // Otros campos que puedas tener a nivel raíz
+  clasificacion_easysystems?: string;
+  codigo_ea?: string;
+  proveedor?: string;
+  procedencia?: string;
+  es_opcional?: boolean;
+  familia?: string;
+  nombre_comercial?: string;
+  detalles?: any; // O una interfaz más detallada
+  [key: string]: any; // Para permitir otros campos no explícitamente definidos
+}
+
 // --- Placeholder para la función API --- 
 // Deberás implementar esto en tu archivo de servicios API (ej. frontend/src/services/api.ts)
 const api = {
@@ -105,6 +152,64 @@ const api = {
   }
 };
 // --- Fin Placeholder API ---
+
+// --- Helper function para renderizar especificaciones anidadas ---
+const renderSpecifications = (specs: any) => {
+  if (!specs || typeof specs !== 'object' || Object.keys(specs).length === 0) {
+    return <p style={{ fontSize: '13px', color: '#6B7280' }}>No hay especificaciones técnicas detalladas disponibles.</p>;
+  }
+
+  // Orden específico deseado para las categorías principales
+  const categoryOrder = [
+    'DIMENSIONES', 
+    'SISTEMA DE POTENCIA', 
+    'SISTEMA DE ALIMENTACIÓN', 
+    'SISTEMA DE CORTE', 
+    'CARACTERÍSTICAS CHASIS Y ACCESORIOS', 
+    'EXIGENCIAS Y SISTEMA DE SEGURIDAD', 
+    'GRUA' 
+    // Añadir otras categorías si existen y se requiere un orden específico
+  ];
+
+  const sortedCategories = Object.keys(specs).sort((a, b) => {
+    const indexA = categoryOrder.indexOf(a);
+    const indexB = categoryOrder.indexOf(b);
+    // Poner categorías conocidas al principio, en el orden definido
+    if (indexA !== -1 && indexB !== -1) return indexA - indexB;
+    if (indexA !== -1) return -1; // a viene antes si está en la lista y b no
+    if (indexB !== -1) return 1;  // b viene antes si está en la lista y a no
+    // Ordenar alfabéticamente las categorías no especificadas
+    return a.localeCompare(b); 
+  });
+
+  return sortedCategories.map((category) => {
+    const details = specs[category];
+    // No renderizar si la categoría está vacía o no es un objeto válido
+    if (!details || typeof details !== 'object' || Object.keys(details).length === 0) {
+      return null; 
+    }
+    
+    return (
+      <div key={category} style={{ marginBottom: '20px' }}>
+        <h4 style={{ fontSize: '15px', fontWeight: 600, color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '8px', marginBottom: '12px' }}>
+          {category.replace(/_/g, ' ')} {/* Reemplazar guiones bajos por espacios */}
+        </h4>
+        <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', alignItems: 'center' }}>
+          {Object.entries(details).map(([key, value]) => (
+            <React.Fragment key={key}>
+              <dt style={{ fontSize: '13px', fontWeight: 500, color: '#4B5563' }}>{key.replace(/_/g, ' ')}:</dt>
+              <dd style={{ fontSize: '13px', color: '#1F2937', margin: 0, wordBreak: 'break-word' }}>
+                {/* Manejar booleanos, nulos o undefined de forma explícita */}
+                {typeof value === 'boolean' ? (value ? 'Sí' : 'No') : value === null || value === undefined ? '-' : String(value)}
+              </dd>
+            </React.Fragment>
+          ))}
+        </dl>
+      </div>
+    );
+  }).filter(Boolean); // Filtrar elementos null si alguna categoría estaba vacía
+};
+// --- Fin Helper function ---
 
 export default function EquiposPanel() {
   // Estados principales (movidos de App.tsx)
@@ -249,13 +354,12 @@ export default function EquiposPanel() {
     setLoadingOpcionalesBtn(producto.codigo_producto || null);
 
     try {
-      if (!producto.codigo_producto || !producto.Modelo /* || !producto.categoria */) { // categoria ya no se usa
-        throw new Error('Faltan parámetros requeridos (código, modelo) para obtener opcionales');
+      if (!producto.codigo_producto) { // Solo el código del producto es necesario ahora
+        throw new Error('Falta el código del producto principal para obtener opcionales.');
       }
       const params = new URLSearchParams();
       params.append('codigo', producto.codigo_producto);
-      params.append('modelo', producto.Modelo);
-      // params.append('categoria', producto.categoria); // Eliminado
+      // El modelo y la categoría ya no se envían como parámetros.
       const url = `http://localhost:5001/api/products/opcionales?${params.toString()}`;
       console.log('Consultando opcionales (vista simple):', url);
 
@@ -1030,12 +1134,19 @@ export default function EquiposPanel() {
           </div>
           
           {/* BOTÓN ACTUALIZAR CACHÉ */}
-          <button onClick={refreshProductos} className="button-hover" title="Actualizar lista desde el caché" style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', border: '1px solid #1e88e5', color: '#1e88e5', padding: '8px 16px', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}>
+          <motion.button 
+            onClick={refreshProductos} 
+            className="button-hover" 
+            title="Actualizar lista desde el caché" 
+            style={{ display: 'flex', alignItems: 'center', gap: '8px', backgroundColor: 'white', border: '1px solid #1e88e5', color: '#1e88e5', padding: '8px 16px', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}
+            whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }} // Ligero movimiento hacia arriba y escala
+            whileTap={{ scale: 0.95 }}
+          >
             {loading ? (<><div style={{ width: '16px', height: '16px', border: '2px solid #E5E7EB', borderTopColor: '#1e88e5', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>Actualizando...</>) : (<><RefreshCw size={16} />Actualizar</>)}
-          </button>
+          </motion.button>
           
           {/* BOTÓN SELECCIONAR PARA COTIZAR */}
-          <button 
+          <motion.button 
             onClick={isSelectionModeActive ? handleProceedToOptionSelection : toggleSelectionMode} 
             disabled={isSelectionModeActive && productosSeleccionadosParaCotizar.length === 0}
             className="button-hover" 
@@ -1048,13 +1159,15 @@ export default function EquiposPanel() {
               cursor: (isSelectionModeActive && productosSeleccionadosParaCotizar.length === 0) ? 'not-allowed' : 'pointer', 
               transition: 'all 0.2s ease' 
             }}
+            whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
+            whileTap={{ scale: 0.95 }}
           >
             {isSelectionModeActive ? <Check size={18} /> : <Mail size={16} />}
             {isSelectionModeActive ? `Cotizar ${productosSeleccionadosParaCotizar.length} Equipo(s)` : 'Seleccionar para Cotizar'}
-          </button>
+          </motion.button>
 
           {/* Botón para CREAR Equipo con icono PlusCircle */}
-          <button 
+          <motion.button 
             onClick={handleOpenCreateModal} 
             className="button-hover" 
             title="Crear un nuevo equipo"
@@ -1064,10 +1177,12 @@ export default function EquiposPanel() {
               borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', 
               transition: 'all 0.2s ease' 
             }}
+            whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
+            whileTap={{ scale: 0.95 }}
           >
             <PlusCircle size={18} /> 
             Nuevo Equipo
-          </button>
+          </motion.button>
         </div>
 
         {/* Contador */}
@@ -1112,7 +1227,7 @@ export default function EquiposPanel() {
                         <td style={{ padding: '16px', textAlign: 'left' }}>{producto.descripcion || '-'}</td>
                         <td style={{ padding: '16px', textAlign: 'left' }}>{producto.Modelo || '-'}</td>
                         <td style={{ padding: '16px', textAlign: 'left' }}>
-                          {producto.tipo && producto.tipo.trim() === '// Cambiado para mostrar tipo' ? '-' : (producto.tipo || '-')}
+                          {producto.tipo || '-'}
                         </td>
                         <td style={{ padding: '12px', textAlign: 'center' }}><button title="Ver Detalles" className="button-hover" style={{ padding: '6px', backgroundColor: 'transparent', color: '#1d4ed8', border: 'none', borderRadius: '50%', cursor: 'pointer'}} onClick={() => handleVerDetalle(producto)} disabled={loadingDetail === producto.codigo_producto}>{loadingDetail === producto.codigo_producto ? '...': <Info size={18}/>}</button></td>
                         <td style={{ padding: '12px', textAlign: 'center' }}>
@@ -1324,9 +1439,115 @@ export default function EquiposPanel() {
             </div>
         )}
 
-        {/* Modales existentes para VerDetalle y VistaOpcionales (no los modifico aquí) */}
-        {showDetalleModal && detalleProducto && ( <div className="modal-overlay" style={unifiedModalOverlayStyle}> {/* ... contenido ... */} </div> )}
-        {showVistaOpcionalesModal && productoParaVistaOpcionales && ( <div style={unifiedModalOverlayStyle}> {/* ... contenido ... */} </div> )}
+        {/* --- MODAL VER DETALLE (Modificado con Animación) --- */}
+        {showDetalleModal && detalleProducto && (
+          <motion.div // <<< Envolver overlay con motion.div >>>
+            className="modal-overlay"
+            style={unifiedModalOverlayStyle}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div // <<< Envolver contenido con motion.div >>>
+              className="modal-content hover-scale" 
+              style={{ ...unifiedModalContentStyle, maxWidth: '900px' }} 
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <div style={unifiedHeaderStyle}>
+                <div style={unifiedTitleStyle}>
+                  <Info size={20} />
+                  <h2>Detalles Técnicos: {detalleProducto.nombre_del_producto || detalleProducto.codigo_producto || 'Equipo'}</h2>
+                </div>
+                <button onClick={handleCloseDetalleModal} className="button-hover" style={unifiedCloseButtonStyle}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{...unifiedBodyStyle, maxHeight: 'calc(85vh - 110px)'}}>
+                {renderSpecifications(detalleProducto.especificaciones_tecnicas)}
+              </div>
+              <div style={unifiedFooterStyle}>
+                <button onClick={handleCloseDetalleModal} style={unifiedSecondaryButtonStyle}>
+                  Cerrar
+                </button>
+              </div>
+            </motion.div> 
+          </motion.div>
+        )}
+        {/* --- FIN MODAL VER DETALLE --- */}
+
+        {showVistaOpcionalesModal && productoParaVistaOpcionales && (
+          <motion.div
+            className="modal-overlay"
+            style={unifiedModalOverlayStyle}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <motion.div
+              className="modal-content hover-scale"
+              style={{ ...unifiedModalContentStyle, maxWidth: '750px' }} // Ancho similar a Ver Detalles
+              initial={{ opacity: 0, scale: 0.95, y: -20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: -20 }}
+              transition={{ duration: 0.3, ease: "easeOut" }}
+            >
+              <div style={unifiedHeaderStyle}>
+                <div style={unifiedTitleStyle}>
+                  <ListFilter size={20} />
+                  <h2>Opcionales para: {productoParaVistaOpcionales.nombre_del_producto || productoParaVistaOpcionales.codigo_producto}</h2>
+                </div>
+                <button onClick={handleCloseModal} className="button-hover" style={unifiedCloseButtonStyle}>
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ ...unifiedBodyStyle, maxHeight: 'calc(80vh - 110px)' }}>
+                {vistaOpcionalesLoading && <p style={{ textAlign: 'center', padding: '20px' }}>Cargando opcionales...</p>}
+                {vistaOpcionalesError && <p style={{ textAlign: 'center', padding: '20px', color: 'red' }}>Error: {vistaOpcionalesError}</p>}
+                {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length === 0 && (
+                  <p style={{ textAlign: 'center', padding: '20px', color: '#6B7280' }}>No se encontraron opcionales para este producto.</p>
+                )}
+                {/* <<< INICIO DEBUG >>> */}
+                {(() => { console.log('[DEBUG] vistaOpcionalesData:', vistaOpcionalesData); return null; })()}
+                {/* <<< FIN DEBUG >>> */}
+                {!vistaOpcionalesLoading && !vistaOpcionalesError && vistaOpcionalesData.length > 0 && (
+                  <div style={unifiedTableContainerStyle}>
+                    <table style={{ ...unifiedTableStyle, fontSize: '13px' }}>
+                      <thead>
+                        <tr style={{ backgroundColor: '#f9fafb' }}>
+                          <th style={{ ...unifiedThStyle, width: '100px' }}>Código</th>
+                          <th style={unifiedThStyle}>Nombre del Opcional</th>
+                          <th style={unifiedThStyle}>Modelo</th>
+                          <th style={{...unifiedThStyle, width: '150px'}}>Tipo Producto</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {vistaOpcionalesData.map((opcional, index) => (
+                          <tr key={opcional.codigo_producto || `opc-${index}`} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                            <td style={unifiedTdStyle}>{opcional.codigo_producto || '-'}</td>
+                            {/* Ajuste para tomar nombre_del_producto de caracteristicas primero */}
+                            <td style={unifiedTdStyle}>{opcional.caracteristicas?.nombre_del_producto || opcional.nombre_del_producto || '-'}</td>
+                            <td style={unifiedTdStyle}>{opcional.Modelo || opcional.caracteristicas?.modelo || '-'}</td>
+                            <td style={unifiedTdStyle}>{opcional.producto || '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+              <div style={unifiedFooterStyle}>
+                <button onClick={handleCloseModal} style={unifiedSecondaryButtonStyle}>
+                  Cerrar
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
 
       </div> 
     </PageLayout>

@@ -1,4 +1,5 @@
 import React, { useState, useCallback } from 'react';
+import { motion } from 'framer-motion';
 import { UploadCloud, FileText, Download, Plus, X, AlertCircle, CheckCircle, FileSpreadsheet, Table2 } from 'lucide-react';
 import * as XLSX from 'xlsx'; // Importar XLSX para generar el archivo Excel
 
@@ -598,13 +599,15 @@ export default function CargaEquiposPanel() {
       {/* Action Buttons */}
       <div style={actionButtonsStyle}>
         <div></div>
-        <button 
+        <motion.button 
           style={buttonStyle} 
           onClick={() => setShowModal(true)}
+          whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
+          whileTap={{ scale: 0.95 }}
         >
           <Plus size={16} />
           Agregar Equipo Individual
-        </button>
+        </motion.button>
       </div>
 
       {/* Modal para carga individual */}
@@ -782,8 +785,7 @@ export default function CargaEquiposPanel() {
         <div style={cardStyle}>
           <h2 style={subtitleStyle}>Carga Masiva de Equipos</h2>
           <p style={descriptionStyle}>
-            Descargue la plantilla Excel, complete los datos y suba el archivo para cargar múltiples equipos a la vez.
-            La columna 'es_opcional' acepta valores como SI/NO, VERDADERO/FALSO, 1/0.
+            Utilice esta sección para cargar nuevos equipos o actualizar especificaciones existentes mediante plantillas. Descargue la plantilla correspondiente, complete los datos y suba el archivo.
           </p>
 
           {/* Grupo de Botones para Descargar Plantillas */}
@@ -838,8 +840,8 @@ export default function CargaEquiposPanel() {
             </div>
              <p style={{fontSize: '12px', color: '#64748b', marginTop: '10px'}}>
               {uploadType === 'plain' 
-                ? "Use esta opción para crear nuevos equipos o actualizar su información básica según la plantilla estándar."
-                : "Use esta opción para añadir o actualizar especificaciones técnicas detalladas y dimensiones a equipos existentes, usando un formato de tabla con modelos en columnas y especificaciones en filas."
+                ? "Use la 'Plantilla General (XLSX)' para crear nuevos equipos o actualizar su información básica (nombre, modelo, dimensiones, etc.)."
+                : "Use la 'Plantilla Especificaciones (CSV)' para actualizar únicamente las especificaciones técnicas de equipos existentes mediante un formato matricial (Código Producto vs Nombre Especificación)."
               }
             </p>
             <UploadCloud size={38} style={{ marginBottom: '12px', color: '#94a3b8' }} />
@@ -916,9 +918,9 @@ export default function CargaEquiposPanel() {
               <li>Los archivos no deben exceder 10MB</li>
               <li>Todas las fechas deben estar en formato YYYY-MM-DD</li>
               <li>Los números decimales deben usar punto como separador</li>
-              <li>Los campos vacíos deben dejarse en blanco, no usar "N/A" o "null"</li>
+              <li>Los campos vacíos deben dejarse en blanco, no usar 'N/A' o "null"</li>
               <li>Las dimensiones deben ser números enteros</li>
-              <li>Los códigos de producto deben ser únicos</li>
+              <li>Los códigos de producto deben ser únicos (para plantilla general) o existentes (para plantilla de especificaciones).</li>
             </ul>
           </div>
         </div>

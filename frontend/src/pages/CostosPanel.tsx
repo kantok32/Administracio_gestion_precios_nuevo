@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 // Importar iconos necesarios (quitamos LayoutDashboard)
 import { SlidersHorizontal, DollarSign, Euro, RefreshCw, Info, Save, Calendar, Filter, Loader2, CheckCircle, XCircle, Calculator } from 'lucide-react';
+import { motion } from 'framer-motion';
 import { api } from '../services/api';
 import { CostoPerfilData } from '../types';
 import { CostParams, CurrencyWebhookResponse, CostParamsWebhookResponse } from '../types/costParams';
@@ -410,14 +411,16 @@ export default function CostosPanel() {
                    Sub Categorías
                  </button>
                  {/* Botón Actualizar Divisas (Existente) */}
-                 <button
+                 <motion.button
                    onClick={handleActualizarDivisas}
                    style={isUpdatingCurrencies || initialCurrencyLoading ? { ...secondaryButtonStyle, cursor: 'not-allowed', opacity: 0.7 } : secondaryButtonStyle}
                    disabled={isUpdatingCurrencies || initialCurrencyLoading}
+                   whileHover={!(isUpdatingCurrencies || initialCurrencyLoading) ? { scale: 1.05, y: -2, transition: { duration: 0.2 } } : {}}
+                   whileTap={!(isUpdatingCurrencies || initialCurrencyLoading) ? { scale: 0.95 } : {}}
                  >
                    {isUpdatingCurrencies ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                    Actualizar Divisas
-                 </button>
+                 </motion.button>
              </div>
           </div>
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px' }}>

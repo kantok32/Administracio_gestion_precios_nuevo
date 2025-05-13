@@ -5,6 +5,7 @@ import PageLayout from '../components/PageLayout';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
 import { Rows as RowsIcon } from 'lucide-react';
+import { motion } from 'framer-motion';
 
 // Register Chart.js components
 ChartJS.register(
@@ -302,14 +303,22 @@ export default function DashboardPanel() {
         <div style={headerActionsStyle}>
           <h1 style={{ fontSize: '24px', fontWeight: 700, color: '#111827' }}>Dashboard</h1>
           <div style={controlsContainerStyle}>
-            <button style={primaryButtonStyle}> 
+            <motion.button 
+              style={primaryButtonStyle}
+              whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
+              whileTap={{ scale: 0.95 }}
+            > 
               <RefreshCcw size={16} />
               Actualizar
-            </button>
-            <button style={successButtonStyle}>
+            </motion.button>
+            <motion.button 
+              style={successButtonStyle}
+              whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
+              whileTap={{ scale: 0.95 }}
+            >
               <Download size={16} />
               Descargar Informe
-            </button>
+            </motion.button>
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Outlet, NavLink } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet, NavLink, useLocation } from 'react-router-dom'
+import { AnimatePresence, motion } from 'framer-motion'
 import './index.css'
 import App from './App.tsx'
 import EquiposPanel from './pages/EquiposPanel'
@@ -118,4 +119,75 @@ if (rootElement) {
       </BrowserRouter>
     </React.StrictMode>
   );
+}
+
+// Componente auxiliar para gestionar AnimatePresence con React Router
+const AnimatedRoutes = () => {
+  const location = useLocation();
+  return (
+    // Envolver Routes con AnimatePresence
+    <AnimatePresence mode="wait"> 
+      {/* Usar location.key como key es crucial para que AnimatePresence detecte el cambio */}
+      <Routes location={location} key={location.key}> 
+        <Route path="/" element={<App />}>
+          {/* Envuelve cada elemento de ruta con motion.div para la animación */}
+          <Route index element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />
+          <Route path="equipos" element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />
+          <Route path="admin" element={<AdminPanel />}> {/* AdminPanel puede tener su propio Outlet y animación si es necesario */}
+             {/* Rutas anidadas dentro de Admin. Si AdminPanel tiene <Outlet/>, estas se animarán */}
+             <Route index element={<AnimatedPage><PerfilesPanel /></AnimatedPage>} />
+             <Route path="costos" element={<AnimatedPage><CostosAdminPanel /></AnimatedPage>} />
+             <Route path="perfiles" element={<AnimatedPage><PerfilesPanel /></AnimatedPage>} />
+             <Route path="carga-equipos" element={<AnimatedPage><CargaEquiposPanel /></AnimatedPage>} />
+           </Route>
+          <Route path="/perfiles/:id/editar" element={<AnimatedPage><PerfilEditForm /></AnimatedPage>} />
+          <Route path="dashboard" element={<AnimatedPage><DashboardPanel /></AnimatedPage>} />
+        </Route>
+      </Routes>
+    </AnimatePresence>
+  );
+};
+
+// Componente HOC para añadir animación a las páginas
+const AnimatedPage = ({ children }: { children: React.ReactNode }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 15 }} // Empieza invisible y ligeramente abajo
+    animate={{ opacity: 1, y: 0 }} // Anima a visible y posición original
+    exit={{ opacity: 0, y: -15 }} // Anima a invisible y ligeramente arriba
+    transition={{ duration: 0.3, ease: "easeInOut" }} // Duración y tipo de transición
+    style={{ position: 'relative' }} // Asegura contexto de apilamiento si es necesario
+  >
+    {children}
+  </motion.div>
+);
+
+try {
+  const root = ReactDOM.createRoot(rootElement!); // Usar '!' porque ya aseguramos que existe
+  console.log('Root creado con éxito');
+  
+  root.render(
+    <React.StrictMode>
+      <BrowserRouter>
+        {/* Usar el componente AnimatedRoutes */}
+        <AnimatedRoutes /> 
+      </BrowserRouter>
+    </React.StrictMode>
+  );
+  
+  console.log('Aplicación renderizada');
+} catch (error) {
+  console.error('Error crítico al renderizar la aplicación:', error);
+  // Mostrar mensaje de error simple en caso de fallo catastrófico
+  rootElement!.innerHTML = `
+    <div style="padding: 40px; text-align: center; font-family: sans-serif;">
+      <h1 style="color: #dc2626;">Error al cargar la aplicación</h1>
+      <p style="color: #52525b;">Ocurrió un problema inesperado. Por favor, intente recargar la página o contacte al soporte.</p>
+      <button 
+        onclick="window.location.reload()" 
+        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #2563eb; color: white; border: none; border-radius: 6px; margin-top: 20px;"
+      >
+        Recargar Página
+      </button>
+    </div>
+  `;
 }

@@ -4,6 +4,7 @@ export interface Producto {
   descripcion?: string;
   Modelo?: string;
   tipo?: string;
+  producto?: string;
   pf_eur?: string | number;
   dimensiones?: any;
   peso_kg?: number | string;
@@ -18,4 +19,5 @@ export interface Producto {
      divisa_costo?: string;
      fecha_cotizacion?: string | Date;
   };
+  especificaciones_tecnicas?: Record<string, any>;
 }

@@ -67,9 +67,7 @@ const productoSchema = new mongoose.Schema({
     clasificacion_easysystems: { type: String, trim: true },
     codigo_ea: { type: String, trim: true },
     // <<<--- NUEVOS CAMPOS DE COSTO --- >>>
-    // Se mueven a datosContablesSchema
-    // costo_fabrica_original_eur: { type: Number },
-    // costo_ano_cotizacion: { type: Number },
+    producto: { type: String, trim: true },
     datos_contables: { // Reemplaza los campos de costo individuales
         type: datosContablesSchema 
     },

@@ -365,73 +365,92 @@ const getProductDetail = async (req, res) => {
   }
 };
 
-// @desc    Get optional products
+// @desc    Get optional products based on new logic
 // @route   GET /api/products/opcionales
 // @access  Public
 const getOptionalProducts = async (req, res) => {
   try {
-    const { codigo, modelo, categoria } = req.query;
+    const { codigo: codigoPrincipal } = req.query;
 
-    if (!codigo || !modelo || !categoria) {
+    if (!codigoPrincipal) {
       return res.status(400).json({
         success: false,
-        error: 'Parámetros inválidos',
-        message: 'Se requieren los parámetros: codigo, modelo y categoria'
+        error: 'Parámetro inválido',
+        message: 'Se requiere el código del producto principal (param: codigo)'
       });
     }
 
-    // Loguear los parámetros para depuración
-    console.log('Consultando productos opcionales con parámetros:', { codigo, modelo, categoria });
+    const productoPrincipal = await Producto.findOne({ Codigo_Producto: codigoPrincipal }).lean();
 
-    const query = { codigo, modelo, categoria };
-    
-    try {
-      const products = await fetchFilteredProducts(query);
-      console.log(`Se encontraron ${products.length} productos opcionales`);
-      
-      return res.status(200).json({
-        success: true,
-        data: {
-          total: products.length,
-          products
-        },
-        timestamp: new Date().toISOString()
+    if (!productoPrincipal) {
+      return res.status(404).json({
+        success: false,
+        error: 'No encontrado',
+        message: `Producto principal con código ${codigoPrincipal} no encontrado.`
       });
-    } catch (fetchError) {
-      console.error('Error específico en fetchFilteredProducts:', fetchError);
+    }
+
+    const valorCampoProductoPrincipal = productoPrincipal.producto;
+    const nombreProductoPrincipal = productoPrincipal.caracteristicas?.nombre_del_producto;
+
+    if (!valorCampoProductoPrincipal || !nombreProductoPrincipal) {
+      return res.status(400).json({
+        success: false,
+        error: 'Datos incompletos en producto principal',
+        message: 'El producto principal no tiene un valor en el campo "producto" o "caracteristicas.nombre_del_producto" para buscar opcionales.'
+      });
+    }
+
+    const matchModeloBase = nombreProductoPrincipal.match(/^\S+/);
+    const modeloBaseExtraido = matchModeloBase ? matchModeloBase[0] : nombreProductoPrincipal.split(' ')[0];
+
+    console.log(`Buscando opcionales para Principal: ${codigoPrincipal}, Modelo Base extraído: ${modeloBaseExtraido}, Valor Campo Producto Principal: ${valorCampoProductoPrincipal}`);
+
+    // 1. Encontrar todos los productos que son "opcionales" en general y no son el producto principal.
+    const posiblesOpcionalesGenerales = await Producto.find({
+      Codigo_Producto: { $ne: codigoPrincipal },
+      'caracteristicas.nombre_del_producto': { $regex: 'opcional', $options: 'i' } // Condición 1: Nombre contiene "opcional"
+    }).lean();
+
+    console.log(`Encontrados ${posiblesOpcionalesGenerales.length} productos generales con "opcional" en el nombre.`);
+
+    // 2. Filtrar estos opcionales generales para que coincidan con el modelo y el producto del principal.
+    const opcionalesFiltrados = posiblesOpcionalesGenerales.filter(opcional => {
+      const nombreOpcional = opcional.caracteristicas?.nombre_del_producto;
+      const productoOpcional = opcional.producto;
+
+      if (!nombreOpcional || !productoOpcional) return false;
+
+      // Condición 2: Coincidencia de Modelo (nombre del opcional contiene el modelo base del principal)
+      const coincideModelo = nombreOpcional.toLowerCase().includes(modeloBaseExtraido.toLowerCase());
       
-      // Intentar con endpoint alternativo si está disponible
-      try {
-        console.log('Intentando obtener productos del caché como alternativa...');
-        const cachedProducts = cachedProducts;
-        
-        // Filtrar productos relacionados por categoría
-        const relatedProducts = cachedProducts.filter(p => p.categoria === categoria);
-        
-        console.log(`Se encontraron ${relatedProducts.length} productos relacionados en el caché`);
-        
-        return res.status(200).json({
-          success: true,
-          data: {
-            total: relatedProducts.length,
-            products: relatedProducts,
-            source: 'cache'
-          },
-          message: 'Usando datos del caché como alternativa',
-          timestamp: new Date().toISOString()
-        });
-      } catch (cacheError) {
-        console.error('Error al intentar usar el caché como alternativa:', cacheError);
-        throw fetchError; // Propagar el error original
+      // Condición 3: Coincidencia de Producto (producto del opcional contiene el producto del principal)
+      const coincideProducto = productoOpcional.toLowerCase().includes(valorCampoProductoPrincipal.toLowerCase());
+      
+      if (coincideModelo && coincideProducto) {
+        console.log(`Opcional ${opcional.Codigo_Producto} (${nombreOpcional}) COINCIDE con modelo y producto.`);
+        return true;
       }
-    }
+      return false;
+    });
+
+    console.log(`Encontrados ${opcionalesFiltrados.length} opcionales filtrados finales.`);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total: opcionalesFiltrados.length,
+        products: opcionalesFiltrados
+      },
+      timestamp: new Date().toISOString()
+    });
+
   } catch (error) {
     console.error('Error al obtener productos opcionales:', error);
     return res.status(500).json({
       success: false,
       error: 'Error al obtener productos opcionales',
-      message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      message: (error instanceof Error) ? error.message : String(error),
     });
   }
 };
@@ -912,16 +931,18 @@ const normalizeHeader = (header) => {
 // Basado en excelTemplateHeaders del frontend y la estructura inferida del modelo Producto
 const headerToModelPath = {
   'codigo_producto': { path: 'Codigo_Producto', type: 'string', required: true },
-  'nombre_del_producto': { path: 'caracteristicas.nombre_del_producto', type: 'string' },
+  'producto': { path: 'producto', type: 'string' },
+  'nombre_producto': { path: 'caracteristicas.nombre_del_producto', type: 'string' },
   'descripcion': { path: 'descripcion', type: 'string' },
   'modelo': { path: 'caracteristicas.modelo', type: 'string', required: true },
   'categoria': { path: 'categoria', type: 'string', required: true },
   'fecha_cotizacion': { path: 'datos_contables.fecha_cotizacion', type: 'date' },
-  'costo_fabrica_original_eur': { path: 'datos_contables.costo_fabrica_original_eur', type: 'number' },
-  'largo_cm': { path: 'dimensiones.largo_cm', type: 'number' },
-  'ancho_cm': { path: 'dimensiones.ancho_cm', type: 'number' },
-  'alto_cm': { path: 'dimensiones.alto_cm', type: 'number' },
+  'costo_fabrica': { path: 'datos_contables.costo_fabrica', type: 'number' },
+  'largo_mm': { path: 'dimensiones.largo_mm', type: 'number' },
+  'ancho_mm': { path: 'dimensiones.ancho_mm', type: 'number' },
+  'alto_mm': { path: 'dimensiones.alto_mm', type: 'number' },
   'peso_kg': { path: 'peso_kg', type: 'number', required: true },
+  'equipo_u_opcional': { path: 'es_opcional', type: 'boolean' },
   'detalle_adicional_1': { path: 'detalles.detalle_adicional_1', type: 'string' },
   'detalle_adicional_2': { path: 'detalles.detalle_adicional_2', type: 'string' },
   'detalle_adicional_3': { path: 'detalles.detalle_adicional_3', type: 'string' },
@@ -930,7 +951,6 @@ const headerToModelPath = {
   'diametro_mm': { path: 'detalles.diametro_mm', type: 'string' },
   'movilidad': { path: 'detalles.movilidad', type: 'string' },
   'rotacion': { path: 'detalles.rotacion', type: 'string' },
-  'es_opcional': { path: 'es_opcional', type: 'boolean' },
   'modelo_compatible_manual': { path: 'detalles.modelo_compatible_manual', type: 'string' },
   'clasificacion_easysystems': { path: 'clasificacion_easysystems', type: 'string' },
   'numero_caracteristicas_tecnicas': { path: 'detalles.numero_caracteristicas_tecnicas', type: 'string' },
@@ -1076,6 +1096,21 @@ const uploadBulkProductsPlain = async (req, res) => {
         });
         continue; 
       }
+      
+      // <<< INICIO: Lógica para manejar "opcional" en nombre_del_producto >>>
+      if (productData.caracteristicas && 
+          typeof productData.caracteristicas.nombre_del_producto === 'string' &&
+          productData.caracteristicas.nombre_del_producto.toLowerCase().includes('opcional')) {
+        
+        // Quitar "opcional" del nombre del producto, insensible a mayúsculas/minúsculas, y limpiar espacios
+        productData.caracteristicas.nombre_del_producto = productData.caracteristicas.nombre_del_producto
+          .replace(/opcional/gi, '') // Elimina "opcional" (case-insensitive)
+          .replace(/\s\s+/g, ' ')    // Reemplaza múltiples espacios con uno solo
+          .trim();                   // Elimina espacios al inicio y al final
+
+        productData.tipo = 'opcional';
+      }
+      // <<< FIN: Lógica para manejar "opcional" en nombre_del_producto >>>
       
       // Limpieza de campos undefined explícitos para que Mongoose aplique defaults si existen
       // o para evitar enviar { campo: undefined }

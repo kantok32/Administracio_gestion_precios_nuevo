@@ -17,6 +17,7 @@
     "@remix-run/router": "^1.23.0",
     "axios": "^1.4.0",
     "chart.js": "^4.3.0",
+    "framer-motion": "^12.11.0",
     "node-fetch": "^3.3.2",
     "react": "^19.1.0",
     "react-chartjs-2": "^5.2.0",
