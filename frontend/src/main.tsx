@@ -11,7 +11,7 @@ import PerfilesPanel from './pages/PerfilesPanel'
 import PerfilEditForm from './pages/PerfilEditForm'
 import CargaEquiposPanel from './pages/CargaEquiposPanel'
 import DashboardPanel from './pages/DashboardPanel'
-import DetallesEnvioPanel from './pages/DetallesEnvioPanel'
+// import DetallesEnvioPanel from './pages/DetallesEnvioPanel'; // Comentado si no se usa directamente aquí
 
 // Forzar modo claro
 document.documentElement.setAttribute('data-color-mode', 'light');
@@ -20,128 +20,45 @@ document.documentElement.style.color = '#000000';
 document.body.style.backgroundColor = '#ffffff';
 document.body.style.color = '#000000';
 
-// Logs para depuración
 console.log('Iniciando aplicación...');
 
-const rootElement = document.getElementById('root');
-console.log('Elemento root encontrado:', rootElement);
+// --- PASO 1: Asegurar que el elemento root exista ---
+let rootElement = document.getElementById('root');
+console.log('Elemento root inicial:', rootElement);
 
-if (rootElement) {
-  try {
-    const root = ReactDOM.createRoot(rootElement);
-    console.log('Root creado con éxito');
-    
-    root.render(
-      <React.StrictMode>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<App />}>
-              <Route index element={<EquiposPanel />} />
-              <Route path="equipos" element={<EquiposPanel />} />
-              <Route path="admin" element={<AdminPanel />}>
-                <Route index element={<PerfilesPanel />} />
-                <Route path="costos" element={<CostosAdminPanel />} />
-                <Route path="perfiles" element={<PerfilesPanel />} />
-                <Route path="carga-equipos" element={<CargaEquiposPanel />} />
-              </Route>
-              <Route path="/perfiles/:id/editar" element={<PerfilEditForm />} />
-              <Route path="dashboard" element={<DashboardPanel />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </React.StrictMode>
-    );
-    
-    console.log('Aplicación renderizada');
-  } catch (error) {
-    console.error('Error al renderizar la aplicación:', error);
-    
-    // Intento de recuperación
-    rootElement.innerHTML = `
-      <div style="padding: 20px; text-align: center;">
-        <h1>Error al cargar la aplicación</h1>
-        <p>Por favor, intente recargar la página.</p>
-        <button onclick="window.location.reload()">Recargar</button>
-      </div>
-    `;
-    
-    // Código de renderizado duplicado en el catch (asegúrate que también incluya la nueva ruta si es relevante para el fallback)
-    const root = ReactDOM.createRoot(rootElement); 
-    root.render(
-      <React.StrictMode>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<App />}>
-              <Route index element={<EquiposPanel />} />
-              <Route path="equipos" element={<EquiposPanel />} />
-              <Route path="admin" element={<AdminPanel />}>
-                <Route index element={<PerfilesPanel />} />
-                <Route path="costos" element={<CostosAdminPanel />} />
-                <Route path="perfiles" element={<PerfilesPanel />} />
-                <Route path="carga-equipos" element={<CargaEquiposPanel />} />
-              </Route>
-              <Route path="/perfiles/:id/editar" element={<PerfilEditForm />} />
-              <Route path="dashboard" element={<DashboardPanel />} />
-            </Route>
-          </Routes>
-        </BrowserRouter>
-      </React.StrictMode>
-    );
-  }
+if (!rootElement) {
+  console.log('No se encontró el elemento root. Creando uno nuevo...');
+  rootElement = document.createElement('div');
+  rootElement.id = 'root';
+  document.body.appendChild(rootElement);
+  console.log('Elemento root creado dinámicamente y añadido al body:', rootElement);
 } else {
-  console.error('No se encontró el elemento root');
-  
-  // Crear elemento root si no existe
-  const newRoot = document.createElement('div');
-  newRoot.id = 'root';
-  document.body.appendChild(newRoot);
-  
-  console.log('Elemento root creado dinámicamente');
-  
-  const root = ReactDOM.createRoot(newRoot);
-  root.render(
-    <React.StrictMode>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<App />}>
-            <Route index element={<EquiposPanel />} />
-            <Route path="equipos" element={<EquiposPanel />} />
-            <Route path="admin" element={<AdminPanel />}>
-              <Route index element={<PerfilesPanel />} />
-              <Route path="costos" element={<CostosAdminPanel />} />
-              <Route path="perfiles" element={<PerfilesPanel />} />
-              <Route path="carga-equipos" element={<CargaEquiposPanel />} />
-            </Route>
-            <Route path="/perfiles/:id/editar" element={<PerfilEditForm />} />
-            <Route path="dashboard" element={<DashboardPanel />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </React.StrictMode>
-  );
+  console.log('Elemento root encontrado existente.');
 }
+
+// --- PASO 2: Crear la raíz de React UNA SOLA VEZ ---
+// Aseguramos que rootElement no es null aquí, ya que lo creamos si no existía.
+const reactRoot = ReactDOM.createRoot(rootElement!);
+console.log('Raíz de React (reactRoot) creada con éxito.');
 
 // Componente auxiliar para gestionar AnimatePresence con React Router
 const AnimatedRoutes = () => {
   const location = useLocation();
   return (
-    // Envolver Routes con AnimatePresence
-    <AnimatePresence mode="wait"> 
-      {/* Usar location.key como key es crucial para que AnimatePresence detecte el cambio */}
-      <Routes location={location} key={location.key}> 
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}> {/* Cambiado a location.pathname para estabilidad de key */}
         <Route path="/" element={<App />}>
-          {/* Envuelve cada elemento de ruta con motion.div para la animación */}
           <Route index element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />
           <Route path="equipos" element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />
-          <Route path="admin" element={<AdminPanel />}> {/* AdminPanel puede tener su propio Outlet y animación si es necesario */}
-             {/* Rutas anidadas dentro de Admin. Si AdminPanel tiene <Outlet/>, estas se animarán */}
-             <Route index element={<AnimatedPage><PerfilesPanel /></AnimatedPage>} />
-             <Route path="costos" element={<AnimatedPage><CostosAdminPanel /></AnimatedPage>} />
-             <Route path="perfiles" element={<AnimatedPage><PerfilesPanel /></AnimatedPage>} />
-             <Route path="carga-equipos" element={<AnimatedPage><CargaEquiposPanel /></AnimatedPage>} />
-           </Route>
+          <Route path="admin" element={<AdminPanel />}>
+            <Route index element={<AnimatedPage><PerfilesPanel /></AnimatedPage>} />
+            <Route path="costos" element={<AnimatedPage><CostosAdminPanel /></AnimatedPage>} />
+            <Route path="perfiles" element={<AnimatedPage><PerfilesPanel /></AnimatedPage>} />
+            <Route path="carga-equipos" element={<AnimatedPage><CargaEquiposPanel /></AnimatedPage>} />
+          </Route>
           <Route path="/perfiles/:id/editar" element={<AnimatedPage><PerfilEditForm /></AnimatedPage>} />
           <Route path="dashboard" element={<AnimatedPage><DashboardPanel /></AnimatedPage>} />
+          {/* <Route path="detalles-envio" element={<AnimatedPage><DetallesEnvioPanel /></AnimatedPage>} /> */}
         </Route>
       </Routes>
     </AnimatePresence>
@@ -151,43 +68,50 @@ const AnimatedRoutes = () => {
 // Componente HOC para añadir animación a las páginas
 const AnimatedPage = ({ children }: { children: React.ReactNode }) => (
   <motion.div
-    initial={{ opacity: 0, y: 15 }} // Empieza invisible y ligeramente abajo
-    animate={{ opacity: 1, y: 0 }} // Anima a visible y posición original
-    exit={{ opacity: 0, y: -15 }} // Anima a invisible y ligeramente arriba
-    transition={{ duration: 0.3, ease: "easeInOut" }} // Duración y tipo de transición
-    style={{ position: 'relative' }} // Asegura contexto de apilamiento si es necesario
+    initial={{ opacity: 0, y: 15 }}
+    animate={{ opacity: 1, y: 0 }}
+    exit={{ opacity: 0, y: -15 }}
+    transition={{ duration: 0.3, ease: "easeInOut" }}
+    style={{ position: 'relative' }}
   >
     {children}
   </motion.div>
 );
 
+// --- PASO 3: Renderizar la aplicación y manejar errores ---
 try {
-  const root = ReactDOM.createRoot(rootElement!); // Usar '!' porque ya aseguramos que existe
-  console.log('Root creado con éxito');
-  
-  root.render(
+  reactRoot.render(
     <React.StrictMode>
       <BrowserRouter>
-        {/* Usar el componente AnimatedRoutes */}
-        <AnimatedRoutes /> 
+        <AnimatedRoutes />
       </BrowserRouter>
     </React.StrictMode>
   );
-  
-  console.log('Aplicación renderizada');
+  console.log('Aplicación renderizada con éxito usando reactRoot.render()');
 } catch (error) {
-  console.error('Error crítico al renderizar la aplicación:', error);
-  // Mostrar mensaje de error simple en caso de fallo catastrófico
+  console.error('Error CRÍTICO al renderizar la aplicación con reactRoot.render():', error);
+  // Mostrar mensaje de error simple directamente en el DOM si el renderizado de React falla catastróficamente.
+  // Aseguramos que rootElement no es null aquí.
   rootElement!.innerHTML = `
-    <div style="padding: 40px; text-align: center; font-family: sans-serif;">
-      <h1 style="color: #dc2626;">Error al cargar la aplicación</h1>
-      <p style="color: #52525b;">Ocurrió un problema inesperado. Por favor, intente recargar la página o contacte al soporte.</p>
-      <button 
-        onclick="window.location.reload()" 
-        style="padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #2563eb; color: white; border: none; border-radius: 6px; margin-top: 20px;"
+    <div style="padding: 40px; text-align: center; font-family: sans-serif; background-color: #fff; color: #000;">
+      <h1 style="color: #dc2626; font-size: 24px; margin-bottom: 16px;">Error al Cargar la Aplicación</h1>
+      <p style="color: #52525b; font-size: 16px; margin-bottom: 24px;">
+        Ocurrió un problema inesperado que impidió iniciar la aplicación correctamente. 
+        Por favor, intente recargar la página.
+      </p>
+      <p style="color: #71717a; font-size: 14px; margin-bottom: 24px;">
+        Si el problema persiste, puede que haya un error en la configuración o el código de la aplicación.
+        Detalles del error (para desarrolladores): ${error instanceof Error ? error.message : String(error)}
+      </p>
+      <button
+        onclick="window.location.reload()"
+        style="padding: 12px 24px; font-size: 16px; cursor: pointer; background-color: #2563eb; color: white; border: none; border-radius: 6px; transition: background-color 0.2s;"
+        onmouseover="this.style.backgroundColor='#1d4ed8'"
+        onmouseout="this.style.backgroundColor='#2563eb'"
       >
         Recargar Página
       </button>
     </div>
   `;
+  console.log('Mensaje de error de fallback insertado en el DOM.');
 }

@@ -9,9 +9,10 @@
     "createdAt": "2025-05-14T15:39:10.281Z",
     "datos_contables": {
       "costo_fabrica": 14135,
-      "divisa_costo": "EUR"
+      "divisa_costo": "EUR",
+      "fecha_cotizacion": "2023-01-14"
     },
-    "descripcion": "Chipeadora PTO A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm",
+    "descripcion": "Chipeadora PTO A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mmcadsdadasdad",
     "dimensiones": {
       "largo_mm": 50,
       "ancho_mm": 50,
@@ -20,7 +21,7 @@
     "es_opcional": false,
     "peso_kg": 50,
     "producto": "Chipeadora PTO",
-    "updatedAt": "2025-05-14T16:24:05.731Z",
+    "updatedAt": "2025-05-14T21:38:43.472Z",
     "especificaciones_tecnicas": {
       "DIMENSIONES": {
         "PESO": "720 [kg]",
@@ -106,11 +107,13 @@
         "PESO CON GRUA": "-"
       }
     },
+    "Descripcion": "-",
+    "Modelo": "A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm",
+    "categoria": "-",
     "codigo_producto": "61504",
     "nombre_del_producto": "Chipeadora PTO A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm",
-    "Modelo": "A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm",
-    "Descripcion": "-",
-    "categoria": "-"
+    "ultima_observacion_edicion": "",
+    "tipo": "equipo"
   },
   {
     "_id": "6824b91efc479a129a350a4d",

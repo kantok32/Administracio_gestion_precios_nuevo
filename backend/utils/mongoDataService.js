@@ -198,32 +198,35 @@ const updateProductInDB = async (codigoProducto, updateData) => {
     const db = await getDB();
     const productsCollection = db.collection('Productos');
 
-    // Construir el objeto de actualización. Evitar que se actualice _id o Codigo_Producto directamente.
-    const dataToUpdate = { ...updateData };
-    delete dataToUpdate._id; // No permitir cambiar el _id mongo
-    delete dataToUpdate.Codigo_Producto; // No permitir cambiar el Codigo_Producto por esta vía
-                                      // Si se necesita cambiar Codigo_Producto, sería una operación más compleja.
+    console.log(`[mongoDataService - updateProductInDB] Intentando actualizar producto.`);
+    console.log(`[mongoDataService - updateProductInDB] Conectado a DB: ${db.databaseName}, Colección: ${productsCollection.collectionName}`);
+    console.log(`[mongoDataService - updateProductInDB] Querying for Codigo_Producto: "${codigoProducto}" (Tipo: ${typeof codigoProducto})`);
 
-    // Añadir timestamp de actualización
+    const dataToUpdate = { ...updateData };
+    delete dataToUpdate._id;
+    delete dataToUpdate.Codigo_Producto;
+
+    console.log(`[mongoDataService - updateProductInDB] Data to set ($set):`, JSON.stringify(dataToUpdate, null, 2));
+
     dataToUpdate.updatedAt = new Date();
 
-    // Realizar la actualización
-    // findOneAndUpdate devuelve el documento DESPUÉS de la actualización si se usa returnDocument: 'after'
     const result = await productsCollection.findOneAndUpdate(
       { Codigo_Producto: codigoProducto },
       { $set: dataToUpdate },
-      { returnDocument: 'after' } // Asegura que devuelva el documento modificado
+      { returnDocument: 'after' }
     );
 
-    if (!result.value) { // Si findOneAndUpdate no encuentra el documento, result.value será null
-      return null; // O lanzar un error 404 específico si el servicio debe manejarlo
+    console.log(`[mongoDataService - updateProductInDB] Raw result from findOneAndUpdate:`, JSON.stringify(result, null, 2));
+
+    if (!result.value) {
+      console.error(`[mongoDataService - updateProductInDB] PRODUCT NOT FOUND by findOneAndUpdate for Codigo_Producto: ${codigoProducto}`);
+      return null;
     }
 
-    // El producto ya está actualizado, ahora aplicar la transformación para consistencia de respuesta
-    // (Aunque findOneAndUpdate con returnDocument: 'after' ya devuelve el doc actualizado con los campos de la DB)
-    // La transformación es principalmente para aplanar 'caracteristicas' si el frontend lo espera así.
     const product = result.value;
-    const productoTransformado = { ...product }; 
+    console.log(`[mongoDataService - updateProductInDB] Product from DB (result.value) BEFORE transformation:`, JSON.stringify(product, null, 2));
+
+    const productoTransformado = { ...product };
     if (product.Codigo_Producto && !product.codigo_producto) {
       productoTransformado.codigo_producto = product.Codigo_Producto;
     }
@@ -231,10 +234,10 @@ const updateProductInDB = async (codigoProducto, updateData) => {
       if (product.caracteristicas.nombre_del_producto) {
         productoTransformado.nombre_del_producto = product.caracteristicas.nombre_del_producto;
       }
-      if (product.caracteristicas.descripcion) { 
+      if (product.caracteristicas.descripcion) {
         productoTransformado.Descripcion = product.caracteristicas.descripcion;
       }
-      if (product.caracteristicas.modelo) { 
+      if (product.caracteristicas.modelo) {
         productoTransformado.Modelo = product.caracteristicas.modelo;
       }
       if (product.caracteristicas.categoria) {
@@ -247,11 +250,12 @@ const updateProductInDB = async (codigoProducto, updateData) => {
     productoTransformado.categoria = productoTransformado.categoria || '-';
     productoTransformado.codigo_producto = productoTransformado.codigo_producto || productoTransformado.Codigo_Producto || '-';
 
+    console.log(`[mongoDataService - updateProductInDB] Product AFTER transformation (productoTransformado):`, JSON.stringify(productoTransformado, null, 2));
     return productoTransformado;
 
   } catch (error) {
-    console.error(`Error in updateProductInDB for code ${codigoProducto}:`, error);
-    throw error; // Propagar el error
+    console.error(`[mongoDataService - updateProductInDB] Error for code ${codigoProducto}:`, error);
+    throw error;
   }
 };
 
