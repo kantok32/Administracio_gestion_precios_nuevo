@@ -221,6 +221,11 @@ const filterInputStyle: React.CSSProperties = {
   backgroundColor: '#fff',
 };
 
+const normalizeModeloString = (str) => {
+  if (!str) return "";
+  return str.toLowerCase().replace(/[\s-]+/g, ''); // Convierte a minúsculas y quita espacios y guiones
+};
+
 export default function EquiposPanel() {
   // Estados principales (movidos de App.tsx)
   const [productos, setProductos] = useState<Producto[]>([]);

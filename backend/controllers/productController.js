@@ -236,32 +236,42 @@ const getAllProductsAndCache = (req, res) => { // Ya no necesita ser async
 // @access  Public
 const resetCache = async (req, res) => {
   try {
-    // Limpiar caché actual
+    // Limpiar caché actual en memoria
     cachedProducts = [];
     currencyCache = {
       dollar: { value: null, last_update: null, fecha: null },
       euro: { value: null, last_update: null, fecha: null }
     };
+    console.log('In-memory cache and currency cache cleared.');
 
     // Obtener nuevos datos de divisas
-    const currencyValues = await fetchCurrencyValues();
-    if (currencyValues && currencyValues.length > 0) {
-      const data = currencyValues[0];
-      
-      currencyCache.dollar.value = data.Valor_Dolar;
-      currencyCache.euro.value = data.Valor_Euro;
-      currencyCache.dollar.fecha = data.Fecha;
-      currencyCache.euro.fecha = data.Fecha;
-      currencyCache.dollar.last_update = new Date().toISOString();
-      currencyCache.euro.last_update = new Date().toISOString();
+    try {
+      const currencyData = await fetchCurrencyValues(); // fetchCurrencyValues devuelve un objeto
+      if (currencyData && currencyData.Valor_Dolar !== undefined && currencyData.Valor_Euro !== undefined) {
+        currencyCache.dollar.value = currencyData.Valor_Dolar;
+        currencyCache.euro.value = currencyData.Valor_Euro;
+        currencyCache.dollar.fecha = currencyData.Fecha || null; // Asegurar que fecha existe
+        currencyCache.euro.fecha = currencyData.Fecha || null;   // Asegurar que fecha existe
+        currencyCache.dollar.last_update = new Date().toISOString();
+        currencyCache.euro.last_update = new Date().toISOString();
+        console.log('Currency cache updated from source.');
+      } else {
+        console.warn('Could not update currency cache, source did not return expected data.');
+      }
+    } catch (currencyError) {
+      console.error('Error fetching currency values during cache reset:', currencyError.message);
+      // Continuar con el reseteo del caché de productos de todas formas
     }
 
-    // Obtener nuevos datos de productos
-    const products = await fetchBaseProductsFromDB();
-    cachedProducts = products;
-    saveCacheToDisk();
+    // Obtener nuevos datos de productos desde la DB
+    const productsFromDB = await fetchBaseProductsFromDB(); // Esta función ya transforma los datos
+    cachedProducts = productsFromDB; // Actualizar caché en memoria con datos frescos de la DB
+    console.log(`Products cache updated from DB. Found ${cachedProducts.length} products.`);
+    
+    saveCacheToDisk();    // Guardar el nuevo caché (potencialmente vacío si la DB está vacía) en disco
+
     res.status(200).json({
-      message: 'Cache reset successfully',
+      message: 'Cache reset successfully. Data reloaded from database.',
       cache: {
         currencies: currencyCache,
         products: {
@@ -271,7 +281,24 @@ const resetCache = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    // Si hay un error (ej. DB no accesible después de borrarla y antes de recargar)
+    // Asegurar que el caché de productos se limpie.
+    cachedProducts = []; // Limpiar caché en memoria
+    console.error('Error during product fetch in cache reset. Product cache force-cleared. Error:', error.message);
+    saveCacheToDisk(); // Intenta guardar el caché de productos vacío
+    
+    // Devolver un error, pero indicar que el caché de productos se limpió.
+    // El caché de divisas podría o no haberse actualizado dependiendo de dónde ocurrió el error.
+    res.status(500).json({ 
+        message: `Error resetting product cache: ${error.message}. Product cache has been cleared. Currency cache status may vary.`,
+        cache: {
+            currencies: currencyCache, // Devuelve el estado actual del caché de divisas
+            products: {
+                total: cachedProducts.length,
+                data: cachedProducts
+            }
+        }
+    });
   }
 };
 
@@ -390,66 +417,98 @@ const getOptionalProducts = async (req, res) => {
       });
     }
 
-    const valorCampoProductoPrincipal = productoPrincipal.producto;
-    const nombreProductoPrincipal = productoPrincipal.caracteristicas?.nombre_del_producto;
-
-    if (!valorCampoProductoPrincipal || !nombreProductoPrincipal) {
-      return res.status(400).json({
-        success: false,
-        error: 'Datos incompletos en producto principal',
-        message: 'El producto principal no tiene un valor en el campo "producto" o "caracteristicas.nombre_del_producto" para buscar opcionales.'
-      });
+    // Validaciones de datos del producto principal
+    if (!productoPrincipal.caracteristicas || !productoPrincipal.caracteristicas.modelo) {
+        return res.status(400).json({
+            success: false,
+            error: 'Datos incompletos en producto principal',
+            message: 'El producto principal no tiene "caracteristicas.modelo" definido.'
+        });
+    }
+    if (!productoPrincipal.producto) { // Necesario para el nuevo filtro de tipo de chipeadora
+        return res.status(400).json({
+            success: false,
+            error: 'Datos incompletos en producto principal',
+            message: 'El producto principal no tiene el campo "producto" definido.'
+        });
     }
 
-    const matchModeloBase = nombreProductoPrincipal.match(/^\S+/);
-    const modeloBaseExtraido = matchModeloBase ? matchModeloBase[0] : nombreProductoPrincipal.split(' ')[0];
+    const modeloPrincipalString = productoPrincipal.caracteristicas.modelo.toLowerCase();
+    const tipoChipeadoraPrincipal = productoPrincipal.producto.toLowerCase(); // Ej: "chipeadora motor", "chipeadora pto"
 
-    console.log(`Buscando opcionales para Principal: ${codigoPrincipal}, Modelo Base extraído: ${modeloBaseExtraido}, Valor Campo Producto Principal: ${valorCampoProductoPrincipal}`);
-
-    // 1. Encontrar todos los productos que son "opcionales" en general y no son el producto principal.
-    const posiblesOpcionalesGenerales = await Producto.find({
+    // Paso 1: Búsqueda inicial de candidatos
+    const candidatosOpcionales = await Producto.find({
       Codigo_Producto: { $ne: codigoPrincipal },
-      'caracteristicas.nombre_del_producto': { $regex: 'opcional', $options: 'i' } // Condición 1: Nombre contiene "opcional"
+      $or: [
+        { tipo: { $regex: /^opcional$/i } },
+        { 'caracteristicas.nombre_del_producto': { $regex: 'opcional', $options: 'i' } }
+      ]
     }).lean();
 
-    console.log(`Encontrados ${posiblesOpcionalesGenerales.length} productos generales con "opcional" en el nombre.`);
+    console.log(`Encontrados ${candidatosOpcionales.length} productos candidatos iniciales (tipo:"opcional" o nombre contiene "opcional").`);
 
-    // 2. Filtrar estos opcionales generales para que coincidan con el modelo y el producto del principal.
-    const opcionalesFiltrados = posiblesOpcionalesGenerales.filter(opcional => {
-      const nombreOpcional = opcional.caracteristicas?.nombre_del_producto;
-      const productoOpcional = opcional.producto;
-
-      if (!nombreOpcional || !productoOpcional) return false;
-
-      // Condición 2: Coincidencia de Modelo (nombre del opcional contiene el modelo base del principal)
-      const coincideModelo = nombreOpcional.toLowerCase().includes(modeloBaseExtraido.toLowerCase());
-      
-      // Condición 3: Coincidencia de Producto (producto del opcional contiene el producto del principal)
-      const coincideProducto = productoOpcional.toLowerCase().includes(valorCampoProductoPrincipal.toLowerCase());
-      
-      if (coincideModelo && coincideProducto) {
-        console.log(`Opcional ${opcional.Codigo_Producto} (${nombreOpcional}) COINCIDE con modelo y producto.`);
-        return true;
+    // Paso 2 y 3: Filtrar por coincidencia de modelo Y tipo de chipeadora
+    const opcionalesFiltrados = candidatosOpcionales.filter(opcional => {
+      // Validaciones de datos del opcional
+      if (!opcional.caracteristicas || !opcional.caracteristicas.modelo) {
+        console.log(`Opcional ${opcional.Codigo_Producto} descartado por no tener caracteristicas.modelo.`);
+        return false;
       }
-      return false;
+      if (!opcional.producto) { // Necesario para el nuevo filtro
+        console.log(`Opcional ${opcional.Codigo_Producto} descartado por no tener el campo "producto".`);
+        return false;
+      }
+
+      const modeloOpcionalString = opcional.caracteristicas.modelo.toLowerCase();
+      const tipoChipeadoraOpcional = opcional.producto.toLowerCase();
+
+      // Condición de Modelo
+      const coincideModelo = modeloPrincipalString.includes(modeloOpcionalString);
+      if (!coincideModelo) {
+        console.log(`Opcional ${opcional.Codigo_Producto} (${opcional.caracteristicas.nombre_del_producto || opcional.nombre_del_producto || 'Nombre no disponible'}) DESCARTADO. Modelo principal "${modeloPrincipalString}" no contiene modelo opcional "${modeloOpcionalString}".`);
+        return false;
+      }
+
+      // NUEVA Condición: Tipo de Chipeadora (Motor vs PTO)
+      const esPrincipalMotor = tipoChipeadoraPrincipal.includes("motor");
+      const esPrincipalPTO = tipoChipeadoraPrincipal.includes("pto");
+      
+      const esOpcionalMotor = tipoChipeadoraOpcional.includes("motor");
+      const esOpcionalPTO = tipoChipeadoraOpcional.includes("pto");
+
+      let coincideTipoChipeadora;
+
+      if (esPrincipalMotor) { // Principal es de tipo MOTOR
+        coincideTipoChipeadora = esOpcionalMotor && !esOpcionalPTO; // Opcional debe ser MOTOR y no PTO
+      } else if (esPrincipalPTO) { // Principal es de tipo PTO
+        coincideTipoChipeadora = esOpcionalPTO && !esOpcionalMotor; // Opcional debe ser PTO y no MOTOR
+      } else { 
+        // Principal NO es ni MOTOR ni PTO (es genérico o un tipo diferente)
+        // En este caso, el opcional TAMPOCO debe ser MOTOR ni PTO para ser compatible
+        coincideTipoChipeadora = !esOpcionalMotor && !esOpcionalPTO;
+      }
+
+      if (!coincideTipoChipeadora) {
+        console.log(`Opcional ${opcional.Codigo_Producto} (${opcional.caracteristicas.nombre_del_producto || opcional.nombre_del_producto || 'Nombre no disponible'}) DESCARTADO. Tipo de chipeadora no coincide. Principal: "${tipoChipeadoraPrincipal}", Opcional: "${tipoChipeadoraOpcional}".`);
+        return false;
+      }
+      
+      console.log(`Opcional ${opcional.Codigo_Producto} (${opcional.caracteristicas.nombre_del_producto || opcional.nombre_del_producto || 'Nombre no disponible'}) COINCIDE POR MODELO Y TIPO DE CHIPEADORA.`);
+      return true;
     });
 
     console.log(`Encontrados ${opcionalesFiltrados.length} opcionales filtrados finales.`);
 
     const opcionalesParaFrontend = opcionalesFiltrados.map(op => {
       const mapped = {
-        ...op, // Spread all original properties first
+        ...op,
         codigo_producto: op.Codigo_Producto,
-        nombre_del_producto: op.caracteristicas?.nombre_del_producto,
-        // Prioritize caracteristicas.descripcion, then root op.descripcion, then root op.Descripcion
+        nombre_del_producto: op.caracteristicas?.nombre_del_producto || op.nombre_del_producto,
         Descripcion: op.caracteristicas?.descripcion || op.descripcion || op.Descripcion,
-        // Prioritize caracteristicas.modelo, then root op.modelo, then root op.Modelo
         Modelo: op.caracteristicas?.modelo || op.modelo || op.Modelo,
       };
-      
-      // Clean up by removing the original capitalized version if it was mapped and the new one exists
       if (op.hasOwnProperty('Codigo_Producto') && mapped.codigo_producto !== undefined) {
-        delete mapped.Codigo_Producto; 
+        delete mapped.Codigo_Producto;
       }
       return mapped;
     });
@@ -464,10 +523,61 @@ const getOptionalProducts = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Error al obtener productos opcionales:', error);
+    console.error('Error al obtener productos opcionales (lógica con tipo de chipeadora):', error);
     return res.status(500).json({
       success: false,
-      error: 'Error al obtener productos opcionales',
+      error: 'Error al obtener productos opcionales (lógica con tipo de chipeadora)',
+      message: (error instanceof Error) ? error.message : String(error),
+    });
+  }
+};
+
+// @desc    Get raw optional products (containing "opcional" in name)
+// @route   GET /api/products/opcionales/raw
+// @access  Public
+const getRawOptionalProducts = async (req, res) => {
+  try {
+    const { codigoPrincipal } = req.query; // Opcional, para excluir el producto principal si se proporciona su código
+
+    const findQuery = {
+      'caracteristicas.nombre_del_producto': { $regex: 'opcional', $options: 'i' }
+    };
+
+    if (codigoPrincipal) {
+      findQuery.Codigo_Producto = { $ne: codigoPrincipal };
+    }
+
+    const rawOpcionales = await Producto.find(findQuery).lean();
+
+    // Mapeo similar al de getOptionalProducts para mantener consistencia si es necesario
+    const opcionalesParaFrontend = rawOpcionales.map(op => {
+      const mapped = {
+        ...op,
+        codigo_producto: op.Codigo_Producto,
+        nombre_del_producto: op.caracteristicas?.nombre_del_producto,
+        Descripcion: op.caracteristicas?.descripcion || op.descripcion || op.Descripcion,
+        Modelo: op.caracteristicas?.modelo || op.modelo || op.Modelo,
+      };
+      if (op.hasOwnProperty('Codigo_Producto') && mapped.codigo_producto !== undefined) {
+        delete mapped.Codigo_Producto;
+      }
+      return mapped;
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        total: opcionalesParaFrontend.length,
+        products: opcionalesParaFrontend
+      },
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error al obtener productos opcionales sin procesar:', error);
+    return res.status(500).json({
+      success: false,
+      error: 'Error al obtener productos opcionales sin procesar',
       message: (error instanceof Error) ? error.message : String(error),
     });
   }
@@ -850,9 +960,12 @@ const uploadTechnicalSpecifications = async (req, res) => {
       const updatePayload = updatesByProduct[codigoProducto];
       let fieldsToUpdate = {};
 
+      // ELIMINADO/COMENTADO: No actualizaremos el modelo desde la carga de especificaciones.
+      /*
       if (updatePayload.modelo !== null && updatePayload.modelo !== '') {
         fieldsToUpdate['caracteristicas.modelo'] = updatePayload.modelo;
       }
+      */
 
       // Limpiar especificaciones_tecnicas de secciones vacías o specs vacías
       Object.keys(updatePayload.especificaciones_tecnicas).forEach(key => {
@@ -887,7 +1000,7 @@ const uploadTechnicalSpecifications = async (req, res) => {
             summary.productsNotFound.push(codigoProducto);
           }
       } else {
-          console.log(`[Bulk Upload Specs - New Format] Producto ${codigoProducto} sin campos válidos para actualizar.`);
+          console.log(`[Bulk Upload Specs - New Format] Producto ${codigoProducto} sin especificaciones válidas para actualizar.`);
       }
     }
 
@@ -953,7 +1066,7 @@ const headerToModelPath = {
   'nombre_producto': { path: 'caracteristicas.nombre_del_producto', type: 'string' },
   'descripcion': { path: 'descripcion', type: 'string' },
   'modelo': { path: 'caracteristicas.modelo', type: 'string', required: true },
-  'categoria': { path: 'categoria', type: 'string', required: true },
+  'categoria': { path: 'categoria', type: 'string' },
   'fecha_cotizacion': { path: 'datos_contables.fecha_cotizacion', type: 'date' },
   'costo_fabrica': { path: 'datos_contables.costo_fabrica', type: 'number' },
   'largo_mm': { path: 'dimensiones.largo_mm', type: 'number' },
@@ -961,31 +1074,31 @@ const headerToModelPath = {
   'alto_mm': { path: 'dimensiones.alto_mm', type: 'number' },
   'peso_kg': { path: 'peso_kg', type: 'number', required: true },
   'equipo_u_opcional': { path: 'es_opcional', type: 'boolean' },
-  'detalle_adicional_1': { path: 'detalles.detalle_adicional_1', type: 'string' },
-  'detalle_adicional_2': { path: 'detalles.detalle_adicional_2', type: 'string' },
-  'detalle_adicional_3': { path: 'detalles.detalle_adicional_3', type: 'string' },
-  'combustible': { path: 'detalles.combustible', type: 'string' },
-  'hp': { path: 'detalles.hp', type: 'string' },
-  'diametro_mm': { path: 'detalles.diametro_mm', type: 'string' },
-  'movilidad': { path: 'detalles.movilidad', type: 'string' },
-  'rotacion': { path: 'detalles.rotacion', type: 'string' },
-  'modelo_compatible_manual': { path: 'detalles.modelo_compatible_manual', type: 'string' },
+  'detalle_adicional_1': { path: 'especificaciones_tecnicas.detalle_adicional_1', type: 'string' },
+  'detalle_adicional_2': { path: 'especificaciones_tecnicas.detalle_adicional_2', type: 'string' },
+  'detalle_adicional_3': { path: 'especificaciones_tecnicas.detalle_adicional_3', type: 'string' },
+  'combustible': { path: 'especificaciones_tecnicas.combustible', type: 'string' },
+  'hp': { path: 'especificaciones_tecnicas.hp', type: 'string' },
+  'diametro_mm': { path: 'especificaciones_tecnicas.diametro_mm', type: 'string' },
+  'movilidad': { path: 'especificaciones_tecnicas.movilidad', type: 'string' },
+  'rotacion': { path: 'especificaciones_tecnicas.rotacion', type: 'string' },
+  'modelo_compatible_manual': { path: 'especificaciones_tecnicas.modelo_compatible_manual', type: 'string' },
+  'numero_caracteristicas_tecnicas': { path: 'especificaciones_tecnicas.numero_caracteristicas_tecnicas', type: 'string' },
+  'descripcion_detallada': { path: 'especificaciones_tecnicas.descripcion_detallada', type: 'string' },
+  'elemento_corte': { path: 'especificaciones_tecnicas.elemento_corte', type: 'string' },
+  'garganta_alimentacion_mm': { path: 'especificaciones_tecnicas.garganta_alimentacion_mm', type: 'string' },
+  'tipo_motor': { path: 'especificaciones_tecnicas.tipo_motor', type: 'string' },
+  'potencia_motor_kw_hp': { path: 'especificaciones_tecnicas.potencia_motor_kw_hp', type: 'string' },
+  'tipo_enganche': { path: 'especificaciones_tecnicas.tipo_enganche', type: 'string' },
+  'tipo_chasis': { path: 'especificaciones_tecnicas.tipo_chasis', type: 'string' },
+  'capacidad_chasis_velocidad': { path: 'especificaciones_tecnicas.capacidad_chasis_velocidad', type: 'string' },
+  'tipo_producto_detalles': { path: 'especificaciones_tecnicas.tipo_producto_detalles', type: 'string' },
   'clasificacion_easysystems': { path: 'clasificacion_easysystems', type: 'string' },
-  'numero_caracteristicas_tecnicas': { path: 'detalles.numero_caracteristicas_tecnicas', type: 'string' },
   'codigo_ea': { path: 'codigo_ea', type: 'string' },
   'proveedor': { path: 'proveedor', type: 'string' },
   'procedencia': { path: 'procedencia', type: 'string' },
   'familia': { path: 'familia', type: 'string' },
   'nombre_comercial': { path: 'nombre_comercial', type: 'string' },
-  'descripcion_detallada': { path: 'detalles.descripcion_detallada', type: 'string' },
-  'elemento_corte': { path: 'detalles.elemento_corte', type: 'string' },
-  'garganta_alimentacion_mm': { path: 'detalles.garganta_alimentacion_mm', type: 'string' },
-  'tipo_motor': { path: 'detalles.tipo_motor', type: 'string' },
-  'potencia_motor_kw_hp': { path: 'detalles.potencia_motor_kw_hp', type: 'string' },
-  'tipo_enganche': { path: 'detalles.tipo_enganche', type: 'string' },
-  'tipo_chasis': { path: 'detalles.tipo_chasis', type: 'string' },
-  'capacidad_chasis_velocidad': { path: 'detalles.capacidad_chasis_velocidad', type: 'string' },
-  'tipo_producto_detalles': { path: 'detalles.tipo_producto_detalles', type: 'string' }
 };
 
 // Helper para parsear valores
@@ -1222,6 +1335,7 @@ module.exports = {
   clearCache,
   getProductDetail,
   getOptionalProducts,
+  getRawOptionalProducts,
   createProductController,
   getProductByCodeController,
   updateProductController,
