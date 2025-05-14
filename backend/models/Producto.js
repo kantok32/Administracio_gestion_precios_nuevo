@@ -79,6 +79,13 @@ const productoSchema = new mongoose.Schema({
     opciones_json: { type: mongoose.Schema.Types.Mixed },
     metadata_json: { type: mongoose.Schema.Types.Mixed },
 
+    // <<<--- NUEVO CAMPO PARA OBSERVACIONES DE EDICIÓN --- >>>
+    ultima_observacion_edicion: {
+        type: String,
+        trim: true
+    }
+    // <<<-------------------------------------------------- >>>
+
 }, { 
     strict: false, // Permite campos no definidos en el schema 
     timestamps: true, // Añade createdAt y updatedAt automáticamente

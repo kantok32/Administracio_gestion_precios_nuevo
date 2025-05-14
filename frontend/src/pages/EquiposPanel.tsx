@@ -4,9 +4,9 @@ import type { LucideProps } from 'lucide-react';
 import OpcionalesCotizacionModal from '../components/OpcionalesCotizacionModal';
 import DetallesCargaPanel from './DetallesCargaPanel';
 import DetallesEnvioPanel from './DetallesEnvioPanel';
-// import type { Producto } from '../types/product'; // <<< LÍNEA A ELIMINAR O COMENTAR
-// Importar motion
+// import type { Producto } from '../types/product'; 
 import { motion } from 'framer-motion';
+import EquipoEditModal from '../components/EquipoEditModal'; // <<< IMPORTACIÓN ASEGURADA
 
 // Interfaces (copiadas de App.tsx)
 interface ApiResponse {
@@ -130,24 +130,11 @@ interface Producto {
 const api = {
   calculatePricing: async (body: { productCode: string; [key: string]: any }) => {
     console.log("[API Placeholder] Calling calculatePricing with body:", body);
-    // Simular llamada fetch a POST /api/pricing-overrides/calculate
-    // const response = await fetch('/api/pricing-overrides/calculate', {
-    //   method: 'POST',
-    //   headers: { 'Content-Type': 'application/json' },
-    //   body: JSON.stringify(body)
-    // });
-    // if (!response.ok) throw new Error('Error en la respuesta del cálculo de precios');
-    // const data = await response.json();
-    // if (!data.success) throw new Error(data.message || 'Error en el cálculo de precios');
-    // return data.data; // Devolver solo la parte 'data' que contiene inputsUsed y calculations
-    
-    // --- Respuesta simulada (¡REEMPLAZAR!) ---
     await new Promise(resolve => setTimeout(resolve, 1500)); // Simular delay
     return { 
       inputsUsed: { productCode: body.productCode, categoryId: 'simulated_category', totalMarginPercent: 0.35, landedCostUSD: 124112.35, appliedUsdClpRate: 978.5, netSalePriceCLP: 163954687, finalSalePriceCLP: 195106078 }, 
       calculations: { landedCostUSD: 124112.35, appliedUsdClpRate: 978.5, landedCostCLP: 121447916, marginAmountCLP: 42506771, netSalePriceCLP: 163954687, saleIvaAmountCLP: 31151391, finalSalePriceCLP: 195106078 }
     }; 
-    // --- Fin Respuesta simulada ---
   }
 };
 // --- Fin Placeholder API ---
@@ -221,7 +208,7 @@ const filterInputStyle: React.CSSProperties = {
   backgroundColor: '#fff',
 };
 
-const normalizeModeloString = (str) => {
+const normalizeModeloString = (str: string) => { // <<< CORRECCIÓN DE TIPADO
   if (!str) return "";
   return str.toLowerCase().replace(/[\s-]+/g, ''); // Convierte a minúsculas y quita espacios y guiones
 };
@@ -285,16 +272,16 @@ export default function EquiposPanel() {
   const [opcionalesLoadingModal, setOpcionalesLoadingModal] = useState(false);
   const [opcionalesErrorModal, setOpcionalesErrorModal] = useState<string | null>(null);
 
-  // --- NUEVO: Estados para el Modal de EDITAR Equipo ---
+  // --- NUEVO: Estados para el Modal de EDITAR Equipo (los estados del formulario interno se eliminan) ---
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [equipoParaEditar, setEquipoParaEditar] = useState<Producto | null>(null);
-  const [editEquipoForm, setEditEquipoForm] = useState<EquipoFormData>({});
-  const [isSubmittingEdit, setIsSubmittingEdit] = useState<boolean>(false);
-  const [editError, setEditError] = useState<string | null>(null); 
+  // ELIMINADOS: const [editEquipoForm, setEditEquipoForm] = useState<EquipoFormData>({});
+  // ELIMINADOS: const [isSubmittingEdit, setIsSubmittingEdit] = useState<boolean>(false);
+  // ELIMINADOS: const [editError, setEditError] = useState<string | null>(null); 
 
   // --- NUEVO: Estados para el Modal de CONFIRMAR ELIMINACIÓN ---
   const [showConfirmDeleteModal, setShowConfirmDeleteModal] = useState<boolean>(false);
-  const [equipoParaEliminar, setEquipoParaEliminar] = useState<Producto | null>(null);
+  const [equipoParaEliminar, setEquipoParaEliminar] = useState<Producto | null>(null); // Renombrado para evitar conflicto si se usa 'equipoParaEliminar' como prop
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
@@ -620,16 +607,26 @@ export default function EquiposPanel() {
       if (event.key === 'Escape') {
          if (showVistaOpcionalesModal) { handleCloseModal(); }
          if (showDetalleModal) { handleCloseDetalleModal(); }
+         if (showEditModal) { handleCloseEditModal(); } // <<< Cerrar el modal de edición con ESC
       }
     };
     window.addEventListener('keydown', handleEscKey);
     return () => { window.removeEventListener('keydown', handleEscKey); };
-  }, [showVistaOpcionalesModal, showDetalleModal]);
+  }, [showVistaOpcionalesModal, showDetalleModal, showEditModal]); // <<< Añadir showEditModal a dependencias
 
   const handleCloseDetalleModal = () => {
     setShowDetalleModal(false);
     setDetalleProducto(null);
   };
+
+  // --- NUEVA FUNCIÓN PARA EL MODAL DE EDICIÓN EXTERNO ---
+  const handleSaveSuccessEquipoEditModal = () => {
+    refreshProductos(); // Actualiza la lista de productos
+    handleCloseEditModal(); // Cierra el modal de edición
+    // Aquí podrías añadir una notificación de éxito si lo deseas
+    console.log("Equipo guardado exitosamente a través de EquipoEditModal y lista actualizada.");
+  };
+  // --- FIN NUEVA FUNCIÓN ---
 
   // --- NUEVO: Función para avanzar en la configuración de opcionales o finalizar ---
   const avanzarConfiguracionOpcionales = (guardarOpcionalesActuales: Producto[] | null = null) => {
@@ -988,123 +985,19 @@ export default function EquiposPanel() {
   //   }
   // };
 
-  // --- Stubs para EDITAR y ELIMINAR (se implementarán después) ---
+  // --- NUEVO: Estados para el Modal de EDITAR Equipo (los estados del formulario interno se eliminan) ---
   const handleOpenEditModal = (producto: Producto) => {
     console.log("Abrir modal para editar:", producto);
-    setEquipoParaEditar(producto);
-    
-    // Pre-llenar formulario. Acceder a los campos de forma segura.
-    // Asumimos que la interfaz Producto del frontend tiene al menos los campos aplanados por el backend.
-    const formData: EquipoFormData = {
-        Codigo_Producto: producto.codigo_producto, // Usar el campo que la interfaz Producto sí tiene
-        peso_kg: (producto as any).peso_kg || '', // Acceso seguro si no está en la interfaz Producto
-        clasificacion_easysystems: (producto as any).clasificacion_easysystems || '',
-        codigo_ea: (producto as any).codigo_ea || '',
-        proveedor: (producto as any).proveedor || '',
-        procedencia: (producto as any).procedencia || '',
-        es_opcional: (producto as any).es_opcional || false,
-        tipo: (producto as any).tipo || '',
-        caracteristicas: {
-            nombre_del_producto: producto.nombre_del_producto,
-            modelo: producto.Modelo, 
-            descripcion: producto.descripcion,
-            categoria: (producto as any).caracteristicas?.categoria || (producto as any).categoria_interna || '' // Ejemplo si hubiera una categoria interna
-        },
-        dimensiones: {
-            largo_cm: (producto as any).dimensiones?.largo_cm || '',
-            ancho_cm: (producto as any).dimensiones?.ancho_cm || '',
-            alto_cm: (producto as any).dimensiones?.alto_cm || '',
-        }
-    };
-    // Limpiar campos undefined o null para evitar problemas con controlled components
-    Object.keys(formData).forEach(key => {
-        const formKey = key as keyof EquipoFormData;
-        if (formData[formKey] === null || formData[formKey] === undefined) {
-            if (typeof formData[formKey] === 'boolean') {
-                 // No hacer nada para booleanos, ya se maneja con || false arriba
-            } else if (typeof formData[formKey] === 'object' && formData[formKey] !== null) {
-                // Para objetos anidados como caracteristicas y dimensiones
-                const nestedObject = formData[formKey] as any;
-                Object.keys(nestedObject).forEach(subKey => {
-                    if (nestedObject[subKey] === null || nestedObject[subKey] === undefined) {
-                        nestedObject[subKey] = '';
-                    }
-                });
-            } else {
-                 (formData as any)[formKey] = '';
-            }
-        }
-    });
-    // Caso especial para es_opcional que debe ser booleano
-    formData.es_opcional = !!formData.es_opcional;
-
-    setEditEquipoForm(formData);
-    setEditError(null);
-    setShowEditModal(true);
+    setEquipoParaEditar(producto); // Establece el producto para editar
+    setShowEditModal(true); // Muestra el modal
+    // La lógica de pre-llenar el formulario y manejar errores ahora reside en EquipoEditModal
   };
+
   const handleCloseEditModal = () => setShowEditModal(false);
-
-  const handleEditEquipoFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const { name, value, type } = e.target;
-    const val = type === 'checkbox' ? (e.target as HTMLInputElement).checked : value;
-
-    if (name.includes('.')) {
-      const [objKey, fieldKey] = name.split('.');
-      setEditEquipoForm(prev => ({
-        ...prev,
-        [objKey]: {
-          ...(prev[objKey as keyof EquipoFormData] as object || {}),
-          [fieldKey]: val
-        }
-      }));
-    } else {
-      setEditEquipoForm(prev => ({ ...prev, [name]: val }));
-    }
-  };
-
-  const handleEditEquipoSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!equipoParaEditar || !equipoParaEditar.codigo_producto) {
-      setEditError('No hay un equipo seleccionado para editar o falta el código del producto.');
-      return;
-    }
-    setIsSubmittingEdit(true);
-    setEditError(null);
-    try {
-      const payload = { ...editEquipoForm };
-      // Eliminar Codigo_Producto del payload ya que no se debe enviar para modificar el ID en sí, se usa en la URL
-      // delete payload.Codigo_Producto; 
-      // Aunque en nuestro servicio backend, ya evitamos que Codigo_Producto se actualice desde el body.
-
-      // Convertir números de string a float si es necesario
-      if (payload.peso_kg) payload.peso_kg = parseFloat(payload.peso_kg as string);
-      if (payload.dimensiones?.largo_cm) payload.dimensiones.largo_cm = parseFloat(payload.dimensiones.largo_cm as string);
-      if (payload.dimensiones?.ancho_cm) payload.dimensiones.ancho_cm = parseFloat(payload.dimensiones.ancho_cm as string);
-      if (payload.dimensiones?.alto_cm) payload.dimensiones.alto_cm = parseFloat(payload.dimensiones.alto_cm as string);
-
-      const response = await fetch(`http://localhost:5001/api/products/code/${equipoParaEditar.codigo_producto}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload) 
-      });
-      const responseData = await response.json();
-      if (!response.ok) {
-        throw new Error(responseData.message || `Error del servidor: ${response.status}`);
-      }
-      alert('¡Equipo actualizado exitosamente!'); 
-      handleCloseEditModal();
-      refreshProductos();
-    } catch (error: any) {
-      console.error('Error al actualizar equipo:', error);
-      setEditError(error.message || 'Ocurrió un error al actualizar el equipo.');
-    } finally {
-      setIsSubmittingEdit(false);
-    }
-  };
 
   const handleOpenConfirmDeleteModal = (producto: Producto) => {
     console.log("Abrir modal para eliminar:", producto);
-    setEquipoParaEliminar(producto);
+    setEquipoParaEliminar(producto); 
     setShowConfirmDeleteModal(true);
   };
   const handleCloseConfirmDeleteModal = () => setShowConfirmDeleteModal(false);
@@ -1116,13 +1009,16 @@ export default function EquiposPanel() {
       const response = await fetch(`http://localhost:5001/api/products/code/${equipoParaEliminar.codigo_producto}`, {
         method: 'DELETE'
       });
-      const responseData = await response.json(); // Leer cuerpo aunque sea para errores
+      const responseData = await response.json(); 
       if (!response.ok) {
         throw new Error(responseData.message || `Error del servidor: ${response.status}`);
       }
+      // ELIMINADO: No hay 'success' o 'data' en la respuesta DELETE que se usa aquí
+      // if (responseData.success) { 
       alert('¡Equipo eliminado exitosamente!');
       handleCloseConfirmDeleteModal();
       refreshProductos();
+      // } else { throw new Error(responseData.message || 'Error al eliminar equipo.'); }
     } catch (error: any) {
       setDeleteError(error.message || 'Error al eliminar equipo.');
     } finally {
@@ -1221,15 +1117,17 @@ export default function EquiposPanel() {
 
   // PASO 0: Tabla de Equipos (renderizado por defecto)
   return (
-    <div style={{ padding: '24px' }}>
+    <div style={{padding: '24px' }}>
       <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '24px' }}>EQUIPOS</h1>
-
+    
       {/* Barra de búsqueda y filtros con los botones actualizados */}
+
       <div style={{ 
         display: 'flex', 
         marginBottom: '24px', 
         gap: '16px', 
         alignItems: 'center',
+        
         // animation: 'slideIn 0.5s ease-out' // Eliminada animación por simplicidad, puede reintroducirse
       }}>
         <div style={{ position: 'relative', flex: '1' }}>
@@ -1249,7 +1147,7 @@ export default function EquiposPanel() {
               </button>
             )}
         </div>
-        
+
         {/* BOTÓN ACTUALIZAR CACHÉ */}
         <motion.button 
           onClick={refreshProductos} 
@@ -1343,8 +1241,8 @@ export default function EquiposPanel() {
           <PlusCircle size={18} /> 
           Nuevo Equipo
         </motion.button>
-        */}
-      </div>
+        */}  
+            </div>
 
       {/* NUEVA SECCIÓN PARA FILTROS DE COLUMNA */}
       <div style={{ 
@@ -1499,30 +1397,58 @@ export default function EquiposPanel() {
                         {/* Column: Acciones (conditional) */}
                         {!isSelectionModeActive && (
                           <td style={{ padding: '12px', textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            <button 
-                              title={producto.descontinuado ? "Reactivar Equipo" : "Descontinuar Equipo"}
-                              onClick={() => handleToggleDescontinuado(producto)} 
-                              disabled={loadingDescontinuado === producto.codigo_producto}
-                              style={{ 
-                                background: 'none', 
-                                border: 'none', 
-                                cursor: 'pointer', 
-                                color: producto.descontinuado ? '#22c55e' : '#f59e0b', // Verde para reactivar, Naranja/Amarillo para descontinuar
-                                padding: '6px', 
-                                marginRight: '10px', 
-                                verticalAlign: 'middle' 
-                              }}
-                            >
-                              {loadingDescontinuado === producto.codigo_producto 
-                                ? <RefreshCw size={18} className="animate-spin" /> 
-                                : producto.descontinuado ? <ArchiveRestore size={18} /> : <Archive size={18} />}
-                            </button>
-                            <button title="Editar Equipo" onClick={() => handleOpenEditModal(producto)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#3B82F6', padding: '6px', marginRight: '10px', verticalAlign: 'middle' }}>
-                              <FileEdit size={18} />
-                            </button>
-                            <button title="Eliminar Equipo" onClick={() => handleOpenConfirmDeleteModal(producto)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#EF4444', padding: '6px', verticalAlign: 'middle' }}>
-                              <Trash2 size={18} />
-                            </button>
+                            {/* NUEVO DIV CONTENEDOR CON FLEXBOX */}
+                            <div className="flex items-center justify-center space-x-1">
+                              <button
+                                title={producto.descontinuado ? "Reactivar Equipo" : "Descontinuar Equipo"}
+                                onClick={() => handleToggleDescontinuado(producto)}
+                                disabled={loadingDescontinuado === producto.codigo_producto}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: producto.descontinuado ? '#22c55e' : '#f59e0b',
+                                  padding: '6px',
+                                  // verticalAlign: 'middle', // Eliminado
+                                  display: 'inline-flex',    // Añadido
+                                  alignItems: 'center'     // Añadido
+                                }}
+                              >
+                                {loadingDescontinuado === producto.codigo_producto
+                                  ? <RefreshCw size={18} className="animate-spin" />
+                                  : producto.descontinuado ? <ArchiveRestore size={18} /> : <Archive size={18} />}
+                              </button>
+                              <button
+                                onClick={() => handleOpenEditModal(producto)}
+                                className="text-blue-600 hover:text-blue-800 hover:bg-blue-100 transition-colors duration-150"
+                                title="Editar Equipo"
+                                style={{
+                                  background: 'none',
+                                  padding: '6px',
+                                  // verticalAlign: 'middle', // Eliminado (ya estaba, pero confirmando)
+                                  display: 'inline-flex',
+                                  alignItems: 'center'
+                                }}
+                              >
+                                <FileEdit size={18} className="text-blue-600" />
+                              </button>
+                              <button
+                                title="Eliminar Equipo"
+                                onClick={() => handleOpenConfirmDeleteModal(producto)}
+                                style={{
+                                  background: 'none',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  color: '#EF4444',
+                                  padding: '6px',
+                                  // verticalAlign: 'middle', // Eliminado
+                                  display: 'inline-flex',    // Añadido
+                                  alignItems: 'center'     // Añadido
+                                }}
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
                           </td>
                         )}
                       </tr>
@@ -1537,129 +1463,18 @@ export default function EquiposPanel() {
 
       {/* Modales (Crear, Editar, Confirmar Eliminación, VerDetalle, VistaOpcionales) */}
 
-      {/* --- MODAL PARA EDITAR Equipo --- */}
+      {/* --- MODAL PARA EDITAR Equipo (AHORA USA EquipoEditModal) --- */}
       {showEditModal && equipoParaEditar && (
-        <div className="modal-overlay" style={unifiedModalOverlayStyle}>
-          {/* Aumentar maxWidth a 850px y reducir un poco el padding vertical del cuerpo */}
-          <div className="modal-content hover-scale" style={{ ...unifiedModalContentStyle, width: '90%', maxWidth: '850px' }}> 
-            <form onSubmit={handleEditEquipoSubmit}>
-              <div style={unifiedHeaderStyle}> {/* Header se mantiene igual */}
-                <div style={unifiedTitleStyle}>
-                   <FileEdit size={20} />
-                   <h2>Editar Equipo: {editEquipoForm.caracteristicas?.nombre_del_producto || editEquipoForm.Codigo_Producto}</h2>
-                </div>
-                <button type="button" onClick={handleCloseEditModal} className="button-hover" style={unifiedCloseButtonStyle}>
-                   <X size={16}/>
-                </button>
-              </div>
-              
-              {/* Cuerpo del modal con scroll y padding ajustado */}
-              <div style={{
-                ...unifiedBodyStyle, 
-                padding: '20px 24px', // Reducido padding vertical de 24px a 20px
-                maxHeight: 'calc(85vh - 110px)', // Reducido el estimado de header/footer a 110px (de 120px)
-                overflowY: 'auto' 
-              }}>
-                
-                {/* Sección: Información General */}
-                <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Información General</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px 24px', marginBottom: '24px' }}>
-                  {/* ... todos los campos de Información General como estaban ... */}
-                  <div>
-                    <label htmlFor="edit_Codigo_Producto" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Código Producto</label>
-                    <input type="text" name="Codigo_Producto" id="edit_Codigo_Producto" value={editEquipoForm.Codigo_Producto || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', backgroundColor: '#e9ecef'}} readOnly />
-                  </div>
-                  <div>
-                    <label htmlFor="edit_caracteristicas.nombre_del_producto" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Nombre Producto*</label>
-                    <input type="text" name="caracteristicas.nombre_del_producto" id="edit_caracteristicas.nombre_del_producto" value={editEquipoForm.caracteristicas?.nombre_del_producto || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
-                   <div>
-                    <label htmlFor="edit_caracteristicas.modelo" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Modelo*</label>
-                    <input type="text" name="caracteristicas.modelo" id="edit_caracteristicas.modelo" value={editEquipoForm.caracteristicas?.modelo || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  <div>
-                    <label htmlFor="edit_categoria" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Categoría Principal*</label>
-                    <input type="text" name="categoria" id="edit_categoria" value={editEquipoForm.categoria || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                   <div>
-                    <label htmlFor="edit_caracteristicas.categoria" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Categoría (Caract.)</label>
-                    <input type="text" name="caracteristicas.categoria" id="edit_caracteristicas.categoria" value={editEquipoForm.caracteristicas?.categoria || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  <div style={{ gridColumn: '1 / -1' }}>
-                      <label htmlFor="edit_caracteristicas.descripcion" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Descripción (Caract.)</label>
-                      <textarea name="caracteristicas.descripcion" id="edit_caracteristicas.descripcion" value={editEquipoForm.caracteristicas?.descripcion || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px', minHeight: '70px'}}/>
-                  </div>
-                </div>
-
-                {/* Sección: Detalles Físicos */}
-                <h3 style={{ marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Detalles Físicos</h3>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '16px 24px', marginBottom: '24px' }}>
-                  {/* ... todos los campos de Detalles Físicos como estaban ... */}
-                  <div>
-                    <label htmlFor="edit_peso_kg" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Peso (kg)*</label>
-                    <input type="number" name="peso_kg" id="edit_peso_kg" value={editEquipoForm.peso_kg || ''} onChange={handleEditEquipoFormChange} required style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                   {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
-                  <div>
-                    <label htmlFor="edit_dimensiones.largo_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Largo (cm)</label>
-                    <input type="number" name="dimensiones.largo_cm" id="edit_dimensiones.largo_cm" value={editEquipoForm.dimensiones?.largo_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  <div>
-                    <label htmlFor="edit_dimensiones.ancho_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Ancho (cm)</label>
-                    <input type="number" name="dimensiones.ancho_cm" id="edit_dimensiones.ancho_cm" value={editEquipoForm.dimensiones?.ancho_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  <div>
-                    <label htmlFor="edit_dimensiones.alto_cm" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Alto (cm)</label>
-                    <input type="number" name="dimensiones.alto_cm" id="edit_dimensiones.alto_cm" value={editEquipoForm.dimensiones?.alto_cm || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                </div>
-                
-                {/* Sección: Clasificación y Origen */}
-                <h3 style={{ marginBottom: '16px', fontSize: '16px', color: '#1e88e5', borderBottom: '1px solid #e0e0e0', paddingBottom: '10px' }}>Clasificación y Origen</h3>
-                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '16px 24px', marginBottom: '20px' }}>
-                  {/* ... todos los campos de Clasificación y Origen como estaban ... */}
-                  <div>
-                    <label htmlFor="edit_clasificacion_easysystems" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Clasificación EasySystems</label>
-                    <input type="text" name="clasificacion_easysystems" id="edit_clasificacion_easysystems" value={editEquipoForm.clasificacion_easysystems || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  {/* (Asegúrate que el resto de los campos de esta sección estén aquí) */}
-                  <div>
-                    <label htmlFor="edit_codigo_ea" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Código EA</label>
-                    <input type="text" name="codigo_ea" id="edit_codigo_ea" value={editEquipoForm.codigo_ea || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  <div>
-                    <label htmlFor="edit_proveedor" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Proveedor</label>
-                    <input type="text" name="proveedor" id="edit_proveedor" value={editEquipoForm.proveedor || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                   <div>
-                    <label htmlFor="edit_procedencia" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Procedencia</label>
-                    <input type="text" name="procedencia" id="edit_procedencia" value={editEquipoForm.procedencia || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                  <div>
-                    <label htmlFor="edit_tipo" style={{fontSize: '13px', fontWeight: 500, display:'block', marginBottom:'4px'}}>Tipo</label>
-                    <input type="text" name="tipo" id="edit_tipo" value={editEquipoForm.tipo || ''} onChange={handleEditEquipoFormChange} style={{width: '100%', padding: '9px 12px', border: '1px solid #D1D5DB', borderRadius: '6px'}}/>
-                  </div>
-                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px', paddingTop: '20px' }}> 
-                      <input type="checkbox" name="es_opcional" id="edit_es_opcional" checked={editEquipoForm.es_opcional || false} onChange={handleEditEquipoFormChange} style={{transform: 'scale(1.3)'}} />
-                      <label htmlFor="edit_es_opcional" style={{fontSize: '13px', fontWeight: 500, marginBottom:0}}>Es Opcional</label>
-                  </div>
-                </div>
-                {editError && <p style={{ color: 'red', gridColumn: '1 / -1', fontSize: '13px', textAlign: 'center' }}>Error: {editError}</p>}
-              </div>
-
-              <div style={unifiedFooterStyle}> {/* Footer se mantiene igual */}
-                <button type="button" onClick={handleCloseEditModal} style={{...unifiedSecondaryButtonStyle, marginRight: '12px'}}>Cancelar</button>
-                <button type="submit" disabled={isSubmittingEdit} style={isSubmittingEdit ? unifiedDisabledSecondaryButtonStyle : {...unifiedSecondaryButtonStyle, backgroundColor: '#3B82F6', color: 'white', borderColor: '#1D4ED8' }}>
-                  {isSubmittingEdit ? 'Guardando...' : 'Guardar Cambios'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <EquipoEditModal
+          open={showEditModal}
+          onClose={handleCloseEditModal}
+          producto={equipoParaEditar} // Asegúrate que productoParaEditar no sea null aquí
+          onSaveSuccess={handleSaveSuccessEquipoEditModal}
+        />
       )}
+      {/* --- FIN MODAL PARA EDITAR Equipo --- */}
 
-      {showConfirmDeleteModal && equipoParaEliminar && ( 
+      {showConfirmDeleteModal && equipoParaEliminar && ( // Corregido equipoParaEliminarState a equipoParaEliminar
           <div style={unifiedModalOverlayStyle}>
             <div style={{...unifiedModalContentStyle, maxWidth: '450px'}}>
               <div style={unifiedHeaderStyle}>
@@ -1793,4 +1608,4 @@ export default function EquiposPanel() {
 
     </div> 
   );
-} 
+}

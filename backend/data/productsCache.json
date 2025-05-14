@@ -4,7 +4,7 @@
     "Codigo_Producto": "61504",
     "caracteristicas": {
       "nombre_del_producto": "Chipeadora PTO A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm",
-      "modelo": "A 530 L - 23 HP V - Chasis 80 km/h"
+      "modelo": "A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm"
     },
     "createdAt": "2025-05-14T15:39:10.281Z",
     "datos_contables": {
@@ -108,94 +108,7 @@
     },
     "codigo_producto": "61504",
     "nombre_del_producto": "Chipeadora PTO A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm",
-    "Modelo": "A 530 L - 23 HP V - Chasis 80 km/h",
-    "Descripcion": "-",
-    "categoria": "-"
-  },
-  {
-    "_id": "6824b91efc479a129a350a4a",
-    "Codigo_Producto": "61533",
-    "caracteristicas": {
-      "nombre_del_producto": ": Polea Reductora Correa en V para Chipeadora A530XL - PTO",
-      "modelo": "A530XL"
-    },
-    "createdAt": "2025-05-14T15:39:10.281Z",
-    "datos_contables": {
-      "costo_fabrica": 695,
-      "divisa_costo": "EUR"
-    },
-    "descripcion": "Opcional: Polea Reductora Correa en V para Chipeadora A530XL - PTO",
-    "dimensiones": {
-      "largo_mm": 50,
-      "ancho_mm": 50,
-      "alto_mm": 50
-    },
-    "es_opcional": false,
-    "peso_kg": 50,
-    "producto": "Chipeadora PTO",
-    "tipo": "opcional",
-    "updatedAt": "2025-05-14T15:39:10.281Z",
-    "codigo_producto": "61533",
-    "nombre_del_producto": ": Polea Reductora Correa en V para Chipeadora A530XL - PTO",
-    "Modelo": "A530XL",
-    "Descripcion": "-",
-    "categoria": "-"
-  },
-  {
-    "_id": "6824b91efc479a129a350a4b",
-    "Codigo_Producto": "61541",
-    "caracteristicas": {
-      "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A530/A530L/A530XL/A540/A550 - PTO/Motor (Radial/Oruga)",
-      "modelo": "A530XL"
-    },
-    "createdAt": "2025-05-14T15:39:10.281Z",
-    "datos_contables": {
-      "costo_fabrica": 510,
-      "divisa_costo": "EUR"
-    },
-    "descripcion": "Opcional: Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A530/A530L/A530XL/A540/A550  - PTO/Motor (Radial/Oruga)",
-    "dimensiones": {
-      "largo_mm": 50,
-      "ancho_mm": 50,
-      "alto_mm": 50
-    },
-    "es_opcional": false,
-    "peso_kg": 50,
-    "producto": "Chipeadora PTO",
-    "tipo": "opcional",
-    "updatedAt": "2025-05-14T15:39:10.281Z",
-    "codigo_producto": "61541",
-    "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A530/A530L/A530XL/A540/A550 - PTO/Motor (Radial/Oruga)",
-    "Modelo": "A530XL",
-    "Descripcion": "-",
-    "categoria": "-"
-  },
-  {
-    "_id": "6824b91efc479a129a350a4c",
-    "Codigo_Producto": "61911",
-    "caracteristicas": {
-      "nombre_del_producto": ": Controlador Electrónico con Sensor en Sistema de Alimentación para Chipeadora A530XL/A540/A425/A450/A328/A231/A141XL/JT600 - PTO",
-      "modelo": "A141XL"
-    },
-    "createdAt": "2025-05-14T15:39:10.281Z",
-    "datos_contables": {
-      "costo_fabrica": 1410,
-      "divisa_costo": "EUR"
-    },
-    "descripcion": "Opcional: Controlador Electrónico con Sensor en Sistema de Alimentación para Chipeadora A530XL/A540/A425/A450/A328/A231/A141XL/JT600 - PTO",
-    "dimensiones": {
-      "largo_mm": 50,
-      "ancho_mm": 50,
-      "alto_mm": 50
-    },
-    "es_opcional": false,
-    "peso_kg": 50,
-    "producto": "Chipeadora PTO",
-    "tipo": "opcional",
-    "updatedAt": "2025-05-14T15:55:43.305Z",
-    "codigo_producto": "61911",
-    "nombre_del_producto": ": Controlador Electrónico con Sensor en Sistema de Alimentación para Chipeadora A530XL/A540/A425/A450/A328/A231/A141XL/JT600 - PTO",
-    "Modelo": "A141XL",
+    "Modelo": "A530XL - 3 Puntos de enlace - Cat.I - Abertura 210 x 150mm",
     "Descripcion": "-",
     "categoria": "-"
   },
@@ -258,6 +171,35 @@
     "categoria": "-"
   },
   {
+    "_id": "6824b91efc479a129a350a4a",
+    "Codigo_Producto": "61533",
+    "caracteristicas": {
+      "nombre_del_producto": ": Polea Reductora Correa en V para Chipeadora A530XL - PTO",
+      "modelo": "A530XL"
+    },
+    "createdAt": "2025-05-14T15:39:10.281Z",
+    "datos_contables": {
+      "costo_fabrica": 695,
+      "divisa_costo": "EUR"
+    },
+    "descripcion": "Opcional: Polea Reductora Correa en V para Chipeadora A530XL - PTO",
+    "dimensiones": {
+      "largo_mm": 50,
+      "ancho_mm": 50,
+      "alto_mm": 50
+    },
+    "es_opcional": false,
+    "peso_kg": 50,
+    "producto": "Chipeadora PTO",
+    "tipo": "opcional",
+    "updatedAt": "2025-05-14T15:39:10.281Z",
+    "codigo_producto": "61533",
+    "nombre_del_producto": ": Polea Reductora Correa en V para Chipeadora A530XL - PTO",
+    "Modelo": "A530XL",
+    "Descripcion": "-",
+    "categoria": "-"
+  },
+  {
     "_id": "6824b91efc479a129a350a4f",
     "Codigo_Producto": "61560",
     "caracteristicas": {
@@ -282,6 +224,64 @@
     "updatedAt": "2025-05-14T15:39:10.281Z",
     "codigo_producto": "61560",
     "nombre_del_producto": ": Chasis de Eje Simple 25km/h para Chipeadora A530XL/A540 - PTO",
+    "Modelo": "A530XL",
+    "Descripcion": "-",
+    "categoria": "-"
+  },
+  {
+    "_id": "6824b91efc479a129a350a4c",
+    "Codigo_Producto": "61911",
+    "caracteristicas": {
+      "nombre_del_producto": ": Controlador Electrónico con Sensor en Sistema de Alimentación para Chipeadora A530XL/A540/A425/A450/A328/A231/A141XL/JT600 - PTO",
+      "modelo": "A141XL"
+    },
+    "createdAt": "2025-05-14T15:39:10.281Z",
+    "datos_contables": {
+      "costo_fabrica": 1410,
+      "divisa_costo": "EUR"
+    },
+    "descripcion": "Opcional: Controlador Electrónico con Sensor en Sistema de Alimentación para Chipeadora A530XL/A540/A425/A450/A328/A231/A141XL/JT600 - PTO",
+    "dimensiones": {
+      "largo_mm": 50,
+      "ancho_mm": 50,
+      "alto_mm": 50
+    },
+    "es_opcional": false,
+    "peso_kg": 50,
+    "producto": "Chipeadora PTO",
+    "tipo": "opcional",
+    "updatedAt": "2025-05-14T15:55:43.305Z",
+    "codigo_producto": "61911",
+    "nombre_del_producto": ": Controlador Electrónico con Sensor en Sistema de Alimentación para Chipeadora A530XL/A540/A425/A450/A328/A231/A141XL/JT600 - PTO",
+    "Modelo": "A141XL",
+    "Descripcion": "-",
+    "categoria": "-"
+  },
+  {
+    "_id": "6824b91efc479a129a350a4b",
+    "Codigo_Producto": "61541",
+    "caracteristicas": {
+      "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A530/A530L/A530XL/A540/A550 - PTO/Motor (Radial/Oruga)",
+      "modelo": "A530XL"
+    },
+    "createdAt": "2025-05-14T15:39:10.281Z",
+    "datos_contables": {
+      "costo_fabrica": 510,
+      "divisa_costo": "EUR"
+    },
+    "descripcion": "Opcional: Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A530/A530L/A530XL/A540/A550  - PTO/Motor (Radial/Oruga)",
+    "dimensiones": {
+      "largo_mm": 50,
+      "ancho_mm": 50,
+      "alto_mm": 50
+    },
+    "es_opcional": false,
+    "peso_kg": 50,
+    "producto": "Chipeadora PTO",
+    "tipo": "opcional",
+    "updatedAt": "2025-05-14T15:39:10.281Z",
+    "codigo_producto": "61541",
+    "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A530/A530L/A530XL/A540/A550 - PTO/Motor (Radial/Oruga)",
     "Modelo": "A530XL",
     "Descripcion": "-",
     "categoria": "-"
@@ -320,7 +320,7 @@
     "Codigo_Producto": "61134",
     "caracteristicas": {
       "nombre_del_producto": "Chipeadora PTO A141XL - Chasis 25km/h - Abertura 410 x 300mm",
-      "modelo": "A530L - 23.8 HP K - Chasis 80 km/h"
+      "modelo": "A141XL - Chasis 25km/h - Abertura 410 x 300mm"
     },
     "createdAt": "2025-05-14T15:55:43.305Z",
     "datos_contables": {
@@ -424,7 +424,7 @@
     },
     "codigo_producto": "61134",
     "nombre_del_producto": "Chipeadora PTO A141XL - Chasis 25km/h - Abertura 410 x 300mm",
-    "Modelo": "A530L - 23.8 HP K - Chasis 80 km/h",
+    "Modelo": "A141XL - Chasis 25km/h - Abertura 410 x 300mm",
     "Descripcion": "-",
     "categoria": "-"
   },
@@ -433,7 +433,7 @@
     "Codigo_Producto": "61135",
     "caracteristicas": {
       "nombre_del_producto": "Chipeadora PTO A141XL - Chasis 80km/h - Abertura 410 x 300mm",
-      "modelo": "A 530 L - 35 HP V - Chasis 80 km/h"
+      "modelo": "A141XL - Chasis 80km/h - Abertura 410 x 300mm"
     },
     "createdAt": "2025-05-14T15:55:43.305Z",
     "datos_contables": {
@@ -537,7 +537,7 @@
     },
     "codigo_producto": "61135",
     "nombre_del_producto": "Chipeadora PTO A141XL - Chasis 80km/h - Abertura 410 x 300mm",
-    "Modelo": "A 530 L - 35 HP V - Chasis 80 km/h",
+    "Modelo": "A141XL - Chasis 80km/h - Abertura 410 x 300mm",
     "Descripcion": "-",
     "categoria": "-"
   },
@@ -778,7 +778,7 @@
     "Codigo_Producto": "61106",
     "caracteristicas": {
       "nombre_del_producto": "Chipeadora Motor A141XL - 75 HP H - Chasis 80km/h - Mesa giratoria - Abertura 410 x 300mm",
-      "modelo": "PTO A 530 XL - 3 Puntos de enlace - Cat I"
+      "modelo": "A141XL - 75 HP H - Chasis 80km/h - Mesa giratoria - Abertura 410 x 300mm"
     },
     "createdAt": "2025-05-14T15:55:43.305Z",
     "datos_contables": {
@@ -880,36 +880,7 @@
     },
     "codigo_producto": "61106",
     "nombre_del_producto": "Chipeadora Motor A141XL - 75 HP H - Chasis 80km/h - Mesa giratoria - Abertura 410 x 300mm",
-    "Modelo": "PTO A 530 XL - 3 Puntos de enlace - Cat I",
-    "Descripcion": "-",
-    "categoria": "-"
-  },
-  {
-    "_id": "6824bcfffc479a129a350a5d",
-    "Codigo_Producto": "61141",
-    "caracteristicas": {
-      "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A141XL - PTO/Motor",
-      "modelo": "A141XL"
-    },
-    "createdAt": "2025-05-14T15:55:43.305Z",
-    "datos_contables": {
-      "costo_fabrica": 265,
-      "divisa_costo": "EUR"
-    },
-    "descripcion": "Opcional: Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A141XL - PTO/Motor",
-    "dimensiones": {
-      "largo_mm": 50,
-      "ancho_mm": 50,
-      "alto_mm": 50
-    },
-    "es_opcional": false,
-    "peso_kg": 50,
-    "producto": "Chipeadora Motor",
-    "tipo": "opcional",
-    "updatedAt": "2025-05-14T15:55:43.305Z",
-    "codigo_producto": "61141",
-    "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A141XL - PTO/Motor",
-    "Modelo": "A141XL",
+    "Modelo": "A141XL - 75 HP H - Chasis 80km/h - Mesa giratoria - Abertura 410 x 300mm",
     "Descripcion": "-",
     "categoria": "-"
   },
@@ -943,64 +914,6 @@
     "categoria": "-"
   },
   {
-    "_id": "6824bcfffc479a129a350a5f",
-    "Codigo_Producto": "61160",
-    "caracteristicas": {
-      "nombre_del_producto": ": Rueda de Repuesto con Soporte para Chipeadora A141XL - PTO/Motor",
-      "modelo": "A141XL"
-    },
-    "createdAt": "2025-05-14T15:55:43.305Z",
-    "datos_contables": {
-      "costo_fabrica": 575,
-      "divisa_costo": "EUR"
-    },
-    "descripcion": "Opcional: Rueda de Repuesto con Soporte para Chipeadora A141XL - PTO/Motor",
-    "dimensiones": {
-      "largo_mm": 50,
-      "ancho_mm": 50,
-      "alto_mm": 50
-    },
-    "es_opcional": false,
-    "peso_kg": 50,
-    "producto": "Chipeadora Motor",
-    "tipo": "opcional",
-    "updatedAt": "2025-05-14T15:55:43.305Z",
-    "codigo_producto": "61160",
-    "nombre_del_producto": ": Rueda de Repuesto con Soporte para Chipeadora A141XL - PTO/Motor",
-    "Modelo": "A141XL",
-    "Descripcion": "-",
-    "categoria": "-"
-  },
-  {
-    "_id": "6824bcfffc479a129a350a60",
-    "Codigo_Producto": "61124",
-    "caracteristicas": {
-      "nombre_del_producto": ": Disco Volante con Sistema de Peine para Chips de Alta Calidad para Chipeadora A141XL - PTO/Motor",
-      "modelo": "A141XL"
-    },
-    "createdAt": "2025-05-14T15:55:43.305Z",
-    "datos_contables": {
-      "costo_fabrica": 2670,
-      "divisa_costo": "EUR"
-    },
-    "descripcion": "Opcional: Disco Volante con Sistema de Peine para Chips de Alta Calidad para Chipeadora A141XL - PTO/Motor",
-    "dimensiones": {
-      "largo_mm": 50,
-      "ancho_mm": 50,
-      "alto_mm": 50
-    },
-    "es_opcional": false,
-    "peso_kg": 50,
-    "producto": "Chipeadora Motor",
-    "tipo": "opcional",
-    "updatedAt": "2025-05-14T15:55:43.305Z",
-    "codigo_producto": "61124",
-    "nombre_del_producto": ": Disco Volante con Sistema de Peine para Chips de Alta Calidad para Chipeadora A141XL - PTO/Motor",
-    "Modelo": "A141XL",
-    "Descripcion": "-",
-    "categoria": "-"
-  },
-  {
     "_id": "6824bcfffc479a129a350a61",
     "Codigo_Producto": "61968",
     "caracteristicas": {
@@ -1025,6 +938,35 @@
     "updatedAt": "2025-05-14T15:55:43.305Z",
     "codigo_producto": "61968",
     "nombre_del_producto": ": Enganche para Remolque tipo Anillo para Chipeadora A530/A530L/A540/A550/A425/A328/A231/A141XL - PTO/Motor",
+    "Modelo": "A141XL",
+    "Descripcion": "-",
+    "categoria": "-"
+  },
+  {
+    "_id": "6824bcfffc479a129a350a64",
+    "Codigo_Producto": "20587",
+    "caracteristicas": {
+      "nombre_del_producto": ": Enganche para Remolque Tipo Anillo para Chipeadora A141XL - Motor",
+      "modelo": "A141XL"
+    },
+    "createdAt": "2025-05-14T15:55:43.305Z",
+    "datos_contables": {
+      "costo_fabrica": 275,
+      "divisa_costo": "EUR"
+    },
+    "descripcion": "Opcional: Enganche para Remolque Tipo Anillo para Chipeadora A141XL - Motor",
+    "dimensiones": {
+      "largo_mm": 50,
+      "ancho_mm": 50,
+      "alto_mm": 50
+    },
+    "es_opcional": false,
+    "peso_kg": 50,
+    "producto": "Chipeadora Motor",
+    "tipo": "opcional",
+    "updatedAt": "2025-05-14T15:55:43.305Z",
+    "codigo_producto": "20587",
+    "nombre_del_producto": ": Enganche para Remolque Tipo Anillo para Chipeadora A141XL - Motor",
     "Modelo": "A141XL",
     "Descripcion": "-",
     "categoria": "-"
@@ -1088,18 +1030,18 @@
     "categoria": "-"
   },
   {
-    "_id": "6824bcfffc479a129a350a64",
-    "Codigo_Producto": "20587",
+    "_id": "6824bcfffc479a129a350a5d",
+    "Codigo_Producto": "61141",
     "caracteristicas": {
-      "nombre_del_producto": ": Enganche para Remolque Tipo Anillo para Chipeadora A141XL - Motor",
+      "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A141XL - PTO/Motor",
       "modelo": "A141XL"
     },
     "createdAt": "2025-05-14T15:55:43.305Z",
     "datos_contables": {
-      "costo_fabrica": 275,
+      "costo_fabrica": 265,
       "divisa_costo": "EUR"
     },
-    "descripcion": "Opcional: Enganche para Remolque Tipo Anillo para Chipeadora A141XL - Motor",
+    "descripcion": "Opcional: Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A141XL - PTO/Motor",
     "dimensiones": {
       "largo_mm": 50,
       "ancho_mm": 50,
@@ -1110,8 +1052,66 @@
     "producto": "Chipeadora Motor",
     "tipo": "opcional",
     "updatedAt": "2025-05-14T15:55:43.305Z",
-    "codigo_producto": "20587",
-    "nombre_del_producto": ": Enganche para Remolque Tipo Anillo para Chipeadora A141XL - Motor",
+    "codigo_producto": "61141",
+    "nombre_del_producto": ": Sistema Hidráulico con Aceite Hidráulico Biodegradable para Chipeadora A141XL - PTO/Motor",
+    "Modelo": "A141XL",
+    "Descripcion": "-",
+    "categoria": "-"
+  },
+  {
+    "_id": "6824bcfffc479a129a350a5f",
+    "Codigo_Producto": "61160",
+    "caracteristicas": {
+      "nombre_del_producto": ": Rueda de Repuesto con Soporte para Chipeadora A141XL - PTO/Motor",
+      "modelo": "A141XL"
+    },
+    "createdAt": "2025-05-14T15:55:43.305Z",
+    "datos_contables": {
+      "costo_fabrica": 575,
+      "divisa_costo": "EUR"
+    },
+    "descripcion": "Opcional: Rueda de Repuesto con Soporte para Chipeadora A141XL - PTO/Motor",
+    "dimensiones": {
+      "largo_mm": 50,
+      "ancho_mm": 50,
+      "alto_mm": 50
+    },
+    "es_opcional": false,
+    "peso_kg": 50,
+    "producto": "Chipeadora Motor",
+    "tipo": "opcional",
+    "updatedAt": "2025-05-14T15:55:43.305Z",
+    "codigo_producto": "61160",
+    "nombre_del_producto": ": Rueda de Repuesto con Soporte para Chipeadora A141XL - PTO/Motor",
+    "Modelo": "A141XL",
+    "Descripcion": "-",
+    "categoria": "-"
+  },
+  {
+    "_id": "6824bcfffc479a129a350a60",
+    "Codigo_Producto": "61124",
+    "caracteristicas": {
+      "nombre_del_producto": ": Disco Volante con Sistema de Peine para Chips de Alta Calidad para Chipeadora A141XL - PTO/Motor",
+      "modelo": "A141XL"
+    },
+    "createdAt": "2025-05-14T15:55:43.305Z",
+    "datos_contables": {
+      "costo_fabrica": 2670,
+      "divisa_costo": "EUR"
+    },
+    "descripcion": "Opcional: Disco Volante con Sistema de Peine para Chips de Alta Calidad para Chipeadora A141XL - PTO/Motor",
+    "dimensiones": {
+      "largo_mm": 50,
+      "ancho_mm": 50,
+      "alto_mm": 50
+    },
+    "es_opcional": false,
+    "peso_kg": 50,
+    "producto": "Chipeadora Motor",
+    "tipo": "opcional",
+    "updatedAt": "2025-05-14T15:55:43.305Z",
+    "codigo_producto": "61124",
+    "nombre_del_producto": ": Disco Volante con Sistema de Peine para Chips de Alta Calidad para Chipeadora A141XL - PTO/Motor",
     "Modelo": "A141XL",
     "Descripcion": "-",
     "categoria": "-"
