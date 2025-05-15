@@ -19,7 +19,7 @@ const dimensionesSchema = new mongoose.Schema({
 const datosContablesSchema = new mongoose.Schema({
     costo_fabrica: { type: Number },
     divisa_costo: { type: String, trim: true, default: 'EUR' },
-    fecha_cotizacion: { type: Date },
+    fecha_cotizacion: { type: String },
     costo_ano_cotizacion: { type: Number } // Se mantiene por si es usado, aunque fecha_cotizacion es más específico
 }, { _id: false });
 // <<<------------------------------------------------------->>>
@@ -32,7 +32,7 @@ const productoSchema = new mongoose.Schema({
         // unique: true,
         trim: true 
     },
-    fecha_cotizacion: { type: String },
+    // fecha_cotizacion: { type: String }, // <<< COMENTADO/ELIMINADO DE AQUÍ
     /* // Eliminando el campo categoria
     categoria: { 
         type: String, 
