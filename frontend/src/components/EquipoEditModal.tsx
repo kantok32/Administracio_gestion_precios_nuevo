@@ -297,12 +297,6 @@ const EquipoEditModal: React.FC<EquipoEditModalProps> = ({ open, onClose, produc
     // delete payload.updatedAt;
 
     try {
-      // Asumiendo que tienes un servicio API configurado
-      // Reemplaza con tu llamada real a la API
-      // Ejemplo: await apiService.updateProduct(producto.Codigo_Producto, payload);
-      console.log('Enviando actualización:', producto.Codigo_Producto, payload);
-      
-      // Simulación de llamada a la API
       const response = await fetch(`/api/products/code/${producto.Codigo_Producto}`, {
         method: 'PUT',
         headers: {
@@ -312,19 +306,35 @@ const EquipoEditModal: React.FC<EquipoEditModalProps> = ({ open, onClose, produc
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Error al actualizar el producto');
+        // Intenta parsear el cuerpo del error si está disponible
+        const errorData = await response.json().catch(() => null); // Evita error si no hay JSON
+        const errorMessage = errorData?.message || errorData?.error || `Error HTTP: ${response.status}`;
+        console.error('Error al guardar el producto:', errorMessage, errorData);
+        // Aquí podrías usar un sistema de notificaciones más amigable en lugar de un alert
+        alert(`Error al guardar: ${errorMessage}`);
+        throw new Error(errorMessage);
       }
 
-      // const updatedProduct = await response.json();
-      // console.log('Producto actualizado:', updatedProduct);
+      const updatedProduct = await response.json();
+      console.log('Producto actualizado:', updatedProduct);
+      alert('¡Producto guardado con éxito!');
       
       onSaveSuccess(); // Llama a la función para refrescar/notificar
       onClose(); // Cierra el modal
     } catch (error) {
-      console.error('Error al guardar el producto:', error);
-      // Aquí podrías mostrar un mensaje de error al usuario en el modal
-      alert('Error al guardar: ' + (error as Error).message);
+      // El error ya debería haber sido logueado y mostrado en una alerta arriba
+      // Si llegamos aquí por un error que no fue un !response.ok (ej. red), loguearlo.
+      // Comprobamos si el error es una instancia de Error para acceder a 'message'
+      if (error instanceof Error) {
+        if (!error.message.startsWith('Error HTTP')) {
+          console.error('Error en handleSubmit:', error);
+          alert(`Se produjo un error inesperado: ${error.message}`);
+        }
+      } else {
+        // Si no es una instancia de Error, loguearlo de forma genérica
+        console.error('Error en handleSubmit (tipo desconocido):', error);
+        alert('Se produjo un error inesperado.');
+      }
     }
   };
 
