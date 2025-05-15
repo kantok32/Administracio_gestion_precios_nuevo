@@ -111,12 +111,12 @@ frontend/
     *   Layout principal: `App.tsx`.
     *   Rutas principales: `/equipos` (`EquiposPanel.tsx`), `/admin` (`AdminPanel.tsx`), `/perfiles/:id/editar` (`PerfilEditForm.tsx`), `/dashboard` (`DashboardPanel.tsx`).
     *   Rutas de administración (`/admin`): Renderizadas dentro de `AdminPanel.tsx`.
-        *   `/admin/perfiles`: `PerfilesPanel.tsx` (Podría existir `PerfilesAdminPanel.tsx` como alternativa o complemento).
-        *   `/admin/costos`: `CostosAdminPanel.tsx` (Podría existir `CostosPanel.tsx` como alternativa o complemento).
-        *   `/admin/carga-equipos`: `CargaEquiposPanel.tsx`.
+        *   `/admin/perfiles`: `pages/PerfilesPanel.tsx` (Podría existir `PerfilesAdminPanel.tsx` como alternativa o complemento).
+        *   `/admin/costos`: `pages/CostosAdminPanel.tsx` (Podría existir `CostosPanel.tsx` como alternativa o complemento).
+        *   `/admin/carga-equipos`: `pages/CargaEquiposPanel.tsx`.
     *   Nuevas páginas identificadas: `DetallesEnvioPanel.tsx`, `DetallesCargaPanel.tsx` (funcionalidad específica a documentar).
     *   Edición de perfil: `/perfiles/:id/editar` renderiza `PerfilEditForm.tsx`.
-*   **Componente Principal:** `App.tsx` define el layout general (cabecera, barra lateral) y puede contener lógica global o estado compartido.
+*   Componente Principal: `App.tsx` define el layout general (cabecera, barra lateral) y puede contener lógica global o estado compartido.
 *   **Páginas:** Los componentes principales para cada ruta están en `pages/`.
 *   **Llamadas API:** Realizadas desde los componentes en `pages/` o a través de funciones definidas en `services/` (como `perfilService.ts` o el genérico `api.ts`).
 *   **Estilos:** Combinación de CSS (`index.css`, `App.css`) y posiblemente una librería UI como Material UI (`theme.ts`).

@@ -9,12 +9,12 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
 - **Descripción:** Permite el registro, inicio de sesión y gestión de usuarios. Asegura el acceso a las funcionalidades de la aplicación.
 - **Backend:**
     - Rutas: `backend/routes/userRoutes.js` (para `/api/users`)
-    - Controladores: `backend/controllers/userController.js` (nombre probable, verificar existencia)
-    - Modelos: `backend/models/User.js` (nombre probable, verificar existencia)
+    - Controladores: `backend/controllers/userController.js`
+    - Modelos: `backend/models/User.js`
     - Middleware: `backend/middleware/authMiddleware.js` (para proteger rutas)
 - **Frontend:**
-    - Componentes/Páginas: Relacionados con el inicio/cierre de sesión y registro de usuarios (Ej: `LoginPage.tsx`, `RegisterPage.tsx` - nombres a confirmar o generalizar según la estructura del proyecto).
-    - Servicios: Funciones para interactuar con la API de usuarios (Ej: `frontend/src/services/authService.ts` - nombre a confirmar).
+    - Componentes/Páginas: La lógica de inicio de sesión podría estar integrada en componentes principales (Ej: `App.tsx`, un modal) en lugar de páginas dedicadas como `LoginPage.tsx` o `RegisterPage.tsx`. (Necesita confirmación del flujo de UI actual o si la funcionalidad está completamente implementada).
+    - Servicios: Funciones para interactuar con la API de usuarios podrían estar en `frontend/src/services/api.ts` o directamente en los componentes, ya que no se observa un `authService.ts` dedicado.
 
 ## 2. Gestión de Productos (Equipos) y Divisas
 
@@ -35,7 +35,7 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
     - Controladores: `backend/controllers/costoPerfilController.js`
     - Modelos: `backend/models/CostoPerfil.js`
 - **Frontend:**
-    - Páginas: `frontend/src/pages/admin/PerfilesPanel.tsx` (accesible vía `/admin/perfiles`). Existe también `frontend/src/pages/PerfilesAdminPanel.tsx` cuyo rol exacto (alternativa o complemento) necesita clarificación. `frontend/src/pages/PerfilEditForm.tsx` (accesible vía `/perfiles/:id/editar`).
+    - Páginas: `frontend/src/pages/PerfilesPanel.tsx` (accesible vía `/admin/perfiles`). Existe también `frontend/src/pages/PerfilesAdminPanel.tsx` cuyo rol exacto (alternativa o complemento) necesita clarificación. `frontend/src/pages/PerfilEditForm.tsx` (accesible vía `/perfiles/:id/editar`).
     - Servicios: Funciones para interactuar con la API de perfiles de costo en `frontend/src/services/perfilService.ts`.
 
 ## 4. Cálculo de Costos
@@ -44,19 +44,19 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
 - **Backend:**
     - Controladores: Principalmente en `backend/controllers/costoPerfilController.js` y `backend/controllers/productController.js` donde se aplican o recuperan los cálculos.
     - Modelos: `backend/models/CostoPerfil.js`, `backend/models/Producto.js`.
-    - Utils: Podrían existir funciones de utilidad en `backend/utils/` para cálculos específicos o la obtención de tipos de cambio.
+    - Utils: Funciones de utilidad en `backend/utils/` (ej: `calculoCostoProducto.js` para cálculos específicos, `mongoDataService.js` para acceso a BD) o para obtención de tipos de cambio.
 - **Frontend:**
-    - Páginas/Componentes: `frontend/src/pages/admin/CostosAdminPanel.tsx` (para visualizar o gestionar aspectos generales de los costos, accesible vía `/admin/costos`). Existe también `frontend/src/pages/CostosPanel.tsx` cuyo rol exacto (alternativa o complemento) necesita clarificación. Cualquier componente que muestre precios o costos calculados de productos.
+    - Páginas/Componentes: `frontend/src/pages/CostosAdminPanel.tsx` (para visualizar o gestionar aspectos generales de los costos, accesible vía `/admin/costos`). Existe también `frontend/src/pages/CostosPanel.tsx` cuyo rol exacto (alternativa o complemento) necesita clarificación. Cualquier componente que muestre precios o costos calculados de productos.
 
 ## 5. Carga Masiva de Datos
 
-- **Descripción:** Ofrece la capacidad de cargar información de equipos y/o sus especificaciones de forma masiva, utilizando plantillas de archivos (Excel, CSV).
+- **Descripción:** Ofrece la capacidad de cargar información de equipos y/o sus especificaciones de forma masiva, utilizando plantillas de archivos (Excel).
 - **Backend:**
-    - Rutas: Rutas específicas para la carga de archivos (Ej: `/api/upload/equipos`, `/api/upload/especificaciones` - a confirmar).
-    - Controladores: Controladores dedicados para procesar los archivos cargados (Ej: `backend/controllers/uploadController.js` - nombre a confirmar).
-    - Archivos plantilla: `backend/Plantilla_Carga_Equipos.xlsx`, `backend/Plantilla_Carga_Especificaciones.csv`.
+    - Rutas: Rutas específicas para la carga de archivos podrían estar dentro de `productRoutes.js` (ej: `/api/products/upload/equipos` - a confirmar revisando el código de rutas).
+    - Controladores: La lógica de carga masiva podría estar integrada en `productController.js` en lugar de un `uploadController.js` dedicado (a confirmar).
+    - Archivos plantilla: `backend/Plantilla_Carga_Equipos.xlsx`, `backend/Plantilla_Carga_Especificaciones.xlsx`.
 - **Frontend:**
-    - Páginas: `frontend/src/pages/admin/CargaEquiposPanel.tsx` (accesible vía `/admin/carga-equipos`).
+    - Páginas: `frontend/src/pages/CargaEquiposPanel.tsx` (accesible vía `/admin/carga-equipos`).
 
 ## 6. Integración con Langchain
 
@@ -76,9 +76,9 @@ Este documento detalla las principales funcionalidades de la aplicación de Admi
     - Componente Raíz: `frontend/src/App.tsx` (define el layout general y las rutas principales).
     - Rutas de Administración: Definidas en `frontend/src/main.tsx` bajo el path `/admin`.
     - Páginas del Panel de Administración:
-        - `frontend/src/pages/admin/PerfilesPanel.tsx` (para `/admin/perfiles`). (Ver nota en sección 3 sobre `PerfilesAdminPanel.tsx`).
-        - `frontend/src/pages/admin/CostosAdminPanel.tsx` (para `/admin/costos`). (Ver nota en sección 4 sobre `CostosPanel.tsx`).
-        - `frontend/src/pages/admin/CargaEquiposPanel.tsx` (para `/admin/carga-equipos`).
+        - `frontend/src/pages/PerfilesPanel.tsx` (para `/admin/perfiles`). (Ver nota en sección 3 sobre `PerfilesAdminPanel.tsx`).
+        - `frontend/src/pages/CostosAdminPanel.tsx` (para `/admin/costos`). (Ver nota en sección 4 sobre `CostosPanel.tsx`).
+        - `frontend/src/pages/CargaEquiposPanel.tsx` (para `/admin/carga-equipos`).
 
 ## 8. Documentación del Proyecto
 
