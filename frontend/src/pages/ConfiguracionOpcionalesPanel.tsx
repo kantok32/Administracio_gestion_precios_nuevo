@@ -237,6 +237,7 @@ export default function ConfiguracionOpcionalesPanel({
                             <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #ddd', width: '120px', fontSize: '13px', color: '#374151' }}>Código</th>
                             <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #ddd', fontSize: '13px', color: '#374151' }}>Nombre</th>
                             <th style={{ padding: '10px 12px', textAlign: 'left', borderBottom: '1px solid #ddd', fontSize: '13px', color: '#374151', minWidth: '250px' }}>Descripción</th>
+                            <th style={{ padding: '10px 12px', textAlign: 'right', borderBottom: '1px solid #ddd', width: '150px', fontSize: '13px', color: '#374151' }}>Costo Fábrica</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -260,6 +261,11 @@ export default function ConfiguracionOpcionalesPanel({
                               </td>
                               <td style={{ padding: '8px 12px', fontSize: '13px', color: '#4b5563', whiteSpace: 'pre-line', lineHeight: '1.4' }}>
                                 {opcional.descripcion || opcional.detalles?.descripcion_extendida || 'No disponible'}
+                              </td>
+                              <td style={{ padding: '8px 12px', textAlign: 'right', fontSize: '13px', color: '#374151' }}>
+                                {opcional.datos_contables && typeof opcional.datos_contables.costo_fabrica === 'number'
+                                  ? `${opcional.datos_contables.costo_fabrica.toLocaleString('de-DE')} ${opcional.datos_contables.divisa_costo || ''}`
+                                  : 'N/A'}
                               </td>
                             </tr>
                           ))}

@@ -647,7 +647,7 @@ export default function EquiposPanel() {
   // Refrescar productos (reutilizable)
   const refreshProductos = useCallback(() => {
     fetchProductos(); // fetchProductos ya existe y carga de /api/products/cache/all
-  }, []); // fetchProductos debería estar envuelto en useCallback si es dependencia de otros useEffects, o ser estable.
+  }, [fetchProductos]); // fetchProductos debería estar envuelto en useCallback si es dependencia de otros useEffects, o ser estable.
 
   // --- NUEVO: Handlers para CREAR Equipo ---
   // const handleOpenCreateModal = () => {
@@ -814,6 +814,80 @@ export default function EquiposPanel() {
     // Aquí podrías mostrar una notificación de éxito
     // --- FIN: Actualización local para simulación ---
   };
+
+  // --- FUNCIONES MOVIDAS AQUÍ DENTRO DEL COMPONENTE ---
+  const handleToggleOpcionalEnModal = (codigoPrincipal: string, codigoOpcional: string) => {
+    setOpcionalesSeleccionadosEnModal((prev: Record<string, Set<string>>) => {
+      const nuevosSeleccionadosParaPrincipal = new Set(prev[codigoPrincipal] || []);
+      if (nuevosSeleccionadosParaPrincipal.has(codigoOpcional)) {
+        nuevosSeleccionadosParaPrincipal.delete(codigoOpcional);
+      } else {
+        nuevosSeleccionadosParaPrincipal.add(codigoOpcional);
+      }
+      return {
+        ...prev,
+        [codigoPrincipal]: nuevosSeleccionadosParaPrincipal
+      };
+    });
+  };
+
+  const handleConfiguracionOpcionalesCompleta = (opcionalesConfirmadosDesdePanel: Record<string, Set<string>>) => {
+    console.log("Configuración de opcionales completada. Datos recibidos:", opcionalesConfirmadosDesdePanel);
+
+    const opcionalesPorProductoFinal: Record<string, Producto[]> = {};
+    productosParaConfigurarOpcionales.forEach(principal => {
+      if (principal.codigo_producto && opcionalesConfirmadosDesdePanel[principal.codigo_producto]) {
+        const codigosOpcionalesSeleccionados = opcionalesConfirmadosDesdePanel[principal.codigo_producto];
+        const opcionalesCompletos = productosOriginales.filter(
+          op => op.codigo_producto && codigosOpcionalesSeleccionados.has(op.codigo_producto)
+        );
+        opcionalesPorProductoFinal[principal.codigo_producto] = opcionalesCompletos;
+      } else if (principal.codigo_producto) {
+        opcionalesPorProductoFinal[principal.codigo_producto] = [];
+      }
+    });
+    setOpcionalesSeleccionadosPorProducto(opcionalesPorProductoFinal);
+
+    const itemsParaDetalleCarga: ProductoConOpcionales[] = productosParaConfigurarOpcionales.map(principal => {
+      return {
+        principal: principal,
+        opcionales: (principal.codigo_producto && opcionalesPorProductoFinal[principal.codigo_producto]) || []
+      };
+    }).filter(item => item.principal && item.principal.codigo_producto);
+
+    console.log("Datos finales para DetallesCargaPanel:", itemsParaDetalleCarga);
+
+    if (itemsParaDetalleCarga.length === 0 && productosParaConfigurarOpcionales.length > 0) {
+      console.warn("Se intentó configurar opcionales, pero no se pudieron construir los items para DetallesCargaPanel.");
+      setPasoCotizacion(0);
+      setProductosSeleccionadosParaCotizar(new Set());
+      setOpcionalesSeleccionadosPorProducto({});
+      setProductosParaConfigurarOpcionales([]);
+      return;
+    }
+
+    setDatosParaDetallesCarga(itemsParaDetalleCarga);
+    setPasoCotizacion(2); // ESTO LLEVA A DetallesCargaPanel
+  };
+
+  const handleCancelarConfiguracionOpcionales = () => {
+    console.log("Cancelada la configuración de opcionales.");
+    setPasoCotizacion(0);
+    setProductosParaConfigurarOpcionales([]);
+  };
+
+  // Función para renderizar el contenido del modal de selección de opcionales
+  // (Actualmente no usada directamente si ConfiguracionOpcionalesPanel es el que se muestra en paso 3)
+  const renderSeleccionOpcionalesModalContent = () => {
+    return (
+      <div>
+        {/* Implementar el contenido del modal aquí */}
+        <p>Contenido del modal de selección de opcionales (renderSeleccionOpcionalesModalContent)</p>
+        {/* Esta función podría usarse si se decide tener un modal más simple en vez de ConfiguracionOpcionalesPanel */}
+      </div>
+    );
+  };
+  // --- FIN DE FUNCIONES MOVIDAS ---
 
   // RENDERIZADO PRINCIPAL
   if (pasoCotizacion === 3) {
@@ -1365,74 +1439,3 @@ export default function EquiposPanel() {
     </div> 
   );
 }
-
-// --- FUNCIÓN PARA MANEJAR EL TOGGLE DE UN OPCIONAL EN EL MODAL ---
-const handleToggleOpcionalEnModal = (codigoPrincipal: string, codigoOpcional: string) => {
-  setOpcionalesSeleccionadosEnModal((prev: Record<string, Set<string>>) => {
-    const nuevosSeleccionadosParaPrincipal = new Set(prev[codigoPrincipal] || []);
-    if (nuevosSeleccionadosParaPrincipal.has(codigoOpcional)) {
-      nuevosSeleccionadosParaPrincipal.delete(codigoOpcional);
-    } else {
-      nuevosSeleccionadosParaPrincipal.add(codigoOpcional);
-    }
-    return {
-      ...prev,
-      [codigoPrincipal]: nuevosSeleccionadosParaPrincipal
-    };
-  });
-};
-
-const handleConfiguracionOpcionalesCompleta = (opcionalesConfirmadosDesdePanel: Record<string, Set<string>>) => {
-  console.log("Configuración de opcionales completada. Datos recibidos:", opcionalesConfirmadosDesdePanel);
-
-  const opcionalesPorProductoFinal: Record<string, Producto[]> = {};
-  productosParaConfigurarOpcionales.forEach(principal => {
-    if (principal.codigo_producto && opcionalesConfirmadosDesdePanel[principal.codigo_producto]) {
-      const codigosOpcionalesSeleccionados = opcionalesConfirmadosDesdePanel[principal.codigo_producto];
-      const opcionalesCompletos = productosOriginales.filter(
-        op => op.codigo_producto && codigosOpcionalesSeleccionados.has(op.codigo_producto)
-      );
-      opcionalesPorProductoFinal[principal.codigo_producto] = opcionalesCompletos;
-    } else if (principal.codigo_producto) {
-      opcionalesPorProductoFinal[principal.codigo_producto] = [];
-    }
-  });
-  setOpcionalesSeleccionadosPorProducto(opcionalesPorProductoFinal);
-
-  const itemsParaDetalleCarga: ProductoConOpcionales[] = productosParaConfigurarOpcionales.map(principal => {
-    return {
-      principal: principal,
-      opcionales: (principal.codigo_producto && opcionalesPorProductoFinal[principal.codigo_producto]) || []
-    };
-  }).filter(item => item.principal && item.principal.codigo_producto);
-
-  console.log("Datos finales para DetallesCargaPanel:", itemsParaDetalleCarga);
-
-  if (itemsParaDetalleCarga.length === 0 && productosParaConfigurarOpcionales.length > 0) {
-    console.warn("Se intentó configurar opcionales, pero no se pudieron construir los items para DetallesCargaPanel.");
-    setPasoCotizacion(0);
-    setProductosSeleccionadosParaCotizar(new Set());
-    setOpcionalesSeleccionadosPorProducto({});
-    setProductosParaConfigurarOpcionales([]);
-    return;
-  }
-
-  setDatosParaDetallesCarga(itemsParaDetalleCarga);
-  setPasoCotizacion(2);
-};
-
-const handleCancelarConfiguracionOpcionales = () => {
-  console.log("Cancelada la configuración de opcionales.");
-  setPasoCotizacion(0);
-  setProductosParaConfigurarOpcionales([]);
-};
-
-// Función para renderizar el contenido del modal de selección de opcionales
-const renderSeleccionOpcionalesModalContent = () => {
-  return (
-    <div>
-      {/* Implementar el contenido del modal aquí */}
-      <p>Contenido del modal de selección de opcionales</p>
-    </div>
-  );
-};
