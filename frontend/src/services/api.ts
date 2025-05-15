@@ -3,8 +3,42 @@ import type { Producto } from "../types/product";
 import type { CurrencyData } from "../types/currency";
 import { CostoPerfilData, ProductoData } from '../types';
 
+// --- INICIO MODIFICACIÓN: Tipo para el payload de calcularCostoProductoConPerfil ---
+// Este tipo debe coincidir con lo que espera el backend para /api/costo-perfiles/calcular-producto
+interface CalcularCostoProductoPayload {
+  profileId: string;
+  anoCotizacion: number;
+  anoEnCurso: number;
+  costoFabricaOriginalEUR: number;
+  tipoCambioEurUsdActual: number;
+  // tipoCambioUsdClpActual no se envía desde el frontend para esta ruta,
+  // el backend lo obtiene con fetchCurrencyValues
+}
+
+// Asumo que la respuesta del backend para calcular-producto tiene esta estructura
+// (basado en PerfilesPanel y la lógica de backend)
+interface GroupedPruebaResults {
+    costo_producto: any;
+    logistica_seguro: any;
+    importacion: any;
+    landed_cost: any;
+    conversion_margen: any;
+    precios_cliente: any;
+    // Deberían definirse tipos más específicos para cada sección
+}
+
+interface CalcularCostoProductoResponse {
+  perfilUsado?: { _id: string; nombre: string };
+  resultado: {
+    inputs: any; // Datos de entrada que usó el backend
+    calculados: GroupedPruebaResults;
+  };
+  message?: string; // Mensaje de éxito o error
+}
+// --- FIN MODIFICACIÓN ---
+
 // Establecer URL base según entorno
-const API_URL = 'http://localhost:3000/api';
+const API_URL = 'http://localhost:5001/api';
 
 // Instancia de axios con configuración común
 const apiClient = axios.create({
@@ -140,23 +174,30 @@ export const getProducts = async (): Promise<Producto[]> => {
 };
 
 export const getDollarValue = async () => {
-  const response = await axios.get(`${API_BASE_URL}/products/currency/dollar`);
+  const response = await axios.get(`${API_URL}/products/currency/dollar`);
   return response.data;
 };
 
 export const getEuroValue = async () => {
-  const response = await axios.get(`${API_BASE_URL}/products/currency/euro`);
+  const response = await axios.get(`${API_URL}/products/currency/euro`);
   return response.data;
 };
 
-const API_BASE_URL = 'http://localhost:5001/api';
+// --- INICIO MODIFICACIÓN: Unificar API_BASE_URL para perfiles y cálculos ---
+// const API_BASE_URL = 'http://localhost:5001/api'; // Esta parece ser la correcta para costo-perfiles
+// Si todo lo de /api/costo-perfiles usa el puerto 5001, entonces se debe usar esta.
+// Si /api/products/currency/* también está en 5001, entonces apiClient debería usar 5001.
+// Por ahora, mantendré las funciones de perfiles apuntando a 5001 y las de apiClient a 3000.
+// **Confirmar cuál es el puerto correcto para cada servicio.**
+// Para las funciones de costo-perfiles, usaré explícitamente la URL del backend de costos.
+const COSTO_API_URL = 'http://localhost:5001/api/costo-perfiles'; 
+// --- FIN MODIFICACIÓN ---
 
 // --- Funciones relacionadas con Perfiles de Costo ---
 
 const fetchAllProfiles = async (): Promise<CostoPerfilData[]> => {
   try {
-    // Usar endpoint correcto: /costo-perfiles
-    const response = await axios.get<CostoPerfilData[]>(`${API_BASE_URL}/costo-perfiles`);
+    const response = await axios.get<CostoPerfilData[]>(`${COSTO_API_URL}/`); // Modificado
     return response.data;
   } catch (error) {
     console.error('Error fetching all cost profiles:', error);
@@ -168,7 +209,7 @@ const fetchProfileData = async (profileId: string): Promise<CostoPerfilData | nu
   if (!profileId) return null;
   try {
     // Usar endpoint correcto: /costo-perfiles/:id
-    const response = await axios.get<CostoPerfilData>(`${API_BASE_URL}/costo-perfiles/${profileId}`);
+    const response = await axios.get<CostoPerfilData>(`${COSTO_API_URL}/${profileId}`); // Modificado
     return response.data;
   } catch (error) {
     console.error(`Error fetching profile data for ID ${profileId}:`, error);
@@ -183,7 +224,7 @@ const fetchProfileData = async (profileId: string): Promise<CostoPerfilData | nu
 const updateProfile = async (profileId: string, data: Partial<CostoPerfilData>): Promise<CostoPerfilData> => {
   try {
     // Usar endpoint correcto: /costo-perfiles/:id
-    const response = await axios.put<CostoPerfilData>(`${API_BASE_URL}/costo-perfiles/${profileId}`, data);
+    const response = await axios.put<CostoPerfilData>(`${COSTO_API_URL}/${profileId}`, data); // Modificado
     return response.data;
   } catch (error) {
     console.error(`Error updating profile ${profileId}:`, error);
@@ -195,7 +236,7 @@ const createProfile = async (data: Omit<CostoPerfilData, '_id' | 'createdAt' | '
   try {
     // Asumiendo que tienes una ruta POST en /api/costo-perfiles o /api/perfiles
     // Ajusta la URL si es necesario (usaré /costo-perfiles como ejemplo)
-    const response = await axios.post<CostoPerfilData>(`${API_BASE_URL}/costo-perfiles`, data);
+    const response = await axios.post<CostoPerfilData>(`${COSTO_API_URL}/`, data); // Modificado
     return response.data;
   } catch (error) {
     console.error('Error creating profile:', error);
@@ -206,7 +247,7 @@ const createProfile = async (data: Omit<CostoPerfilData, '_id' | 'createdAt' | '
 const deleteProfile = async (profileId: string): Promise<{ message: string }> => {
   try {
     // Usar endpoint correcto: /costo-perfiles/:id
-    const response = await axios.delete<{ message: string }>(`${API_BASE_URL}/costo-perfiles/${profileId}`);
+    const response = await axios.delete<{ message: string }>(`${COSTO_API_URL}/${profileId}`); // Modificado
     return response.data;
   } catch (error) {
     console.error(`Error deleting profile ${profileId}:`, error);
@@ -218,13 +259,33 @@ const deleteProfile = async (profileId: string): Promise<{ message: string }> =>
 const fetchAllProducts = async (): Promise<ProductoData[]> => {
   try {
     // Ajusta la ruta si es diferente
-    const response = await axios.get<ProductoData[]>(`${API_BASE_URL}/products`); 
+    const response = await axios.get<ProductoData[]>(`${API_URL}/products`); 
     return response.data;
   } catch (error) {
     console.error('Error fetching products:', error);
     throw error;
   }
 };
+
+// --- INICIO MODIFICACIÓN: Nueva función para calcular costo de producto con perfil ---
+const calcularCostoProductoConPerfil = async (payload: CalcularCostoProductoPayload): Promise<CalcularCostoProductoResponse> => {
+  try {
+    const response = await axios.post<CalcularCostoProductoResponse>(`${COSTO_API_URL}/calcular-producto`, payload);
+    return response.data;
+  } catch (error) {
+    console.error('Error en calcularCostoProductoConPerfil:', error);
+    // Mejorar el manejo de errores para que el componente pueda interpretarlo
+    if (axios.isAxiosError(error) && error.response) {
+      throw { 
+        message: error.response.data.message || 'Error al calcular el costo del producto.',
+        status: error.response.status,
+        data: error.response.data
+      };
+    }
+    throw { message: 'Error desconocido al calcular el costo del producto.' };
+  }
+};
+// --- FIN MODIFICACIÓN ---
 
 // Exportar las funciones
 export const api = {
@@ -239,5 +300,8 @@ export const api = {
   // Añadir funciones de divisas
   getDollarValue, 
   getEuroValue,
+  // --- INICIO MODIFICACIÓN: Añadir nueva función al objeto api exportado ---
+  calcularCostoProductoConPerfil,
+  // --- FIN MODIFICACIÓN ---
   // ... otras funciones API necesarias
 };

@@ -11,6 +11,7 @@ import PerfilesPanel from './pages/PerfilesPanel'
 import PerfilEditForm from './pages/PerfilEditForm'
 import CargaEquiposPanel from './pages/CargaEquiposPanel'
 import DashboardPanel from './pages/DashboardPanel'
+import ResultadosCalculoCostosPanel from './pages/ResultadosCalculoCostosPanel'
 // import DetallesEnvioPanel from './pages/DetallesEnvioPanel'; // Comentado si no se usa directamente aquí
 
 // Forzar modo claro
@@ -59,6 +60,7 @@ const AnimatedRoutes = () => {
           <Route path="/perfiles/:id/editar" element={<AnimatedPage><PerfilEditForm /></AnimatedPage>} />
           <Route path="dashboard" element={<AnimatedPage><DashboardPanel /></AnimatedPage>} />
           {/* <Route path="detalles-envio" element={<AnimatedPage><DetallesEnvioPanel /></AnimatedPage>} /> */}
+          <Route path="resultados-calculo-costos" element={<AnimatedPage><ResultadosCalculoCostosPanel /></AnimatedPage>} />
         </Route>
       </Routes>
     </AnimatePresence>
