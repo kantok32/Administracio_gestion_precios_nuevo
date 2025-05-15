@@ -98,6 +98,7 @@ interface Producto {
   datos_contables?: {
     costo_fabrica_original_eur?: number;
     costo_ano_cotizacion?: number;
+    fecha_cotizacion?: string; // <<< AÑADIDO
     [key: string]: any; // Para otros campos dentro de datos_contables
   };
   dimensiones?: {

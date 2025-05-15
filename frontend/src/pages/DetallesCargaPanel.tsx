@@ -11,6 +11,7 @@ interface Producto {
   datos_contables?: {
     costo_fabrica?: number;
     divisa_costo?: string;
+    fecha_cotizacion?: string;
     [key: string]: any;
   };
 }

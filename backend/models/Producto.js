@@ -32,6 +32,7 @@ const productoSchema = new mongoose.Schema({
         // unique: true,
         trim: true 
     },
+    fecha_cotizacion: { type: String },
     /* // Eliminando el campo categoria
     categoria: { 
         type: String, 

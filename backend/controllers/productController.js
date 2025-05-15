@@ -1067,7 +1067,8 @@ const headerToModelPath = {
   'descripcion': { path: 'descripcion', type: 'string' },
   'modelo': { path: 'caracteristicas.modelo', type: 'string', required: true },
   'categoria': { path: 'categoria', type: 'string' },
-  'fecha_cotizacion': { path: 'datos_contables.fecha_cotizacion', type: 'date' },
+  'fecha_cotizacion': { path: 'fecha_cotizacion', type: 'string' },
+  'fecha_cotizacion_': { path: 'fecha_cotizacion', type: 'string' },
   'costo_fabrica': { path: 'datos_contables.costo_fabrica', type: 'number' },
   'largo_mm': { path: 'dimensiones.largo_mm', type: 'number' },
   'ancho_mm': { path: 'dimensiones.ancho_mm', type: 'number' },
@@ -1260,6 +1261,14 @@ const uploadBulkProductsPlain = async (req, res) => {
         return obj;
       }
       productData = removeUndefinedFields(productData);
+
+      // <<< DEBUG: Mostrar el objeto productData que se enviará a MongoDB >>>
+      if (jsonData.length === 1) { // Solo loguear si es una carga de un solo item para no inundar la consola
+          console.log('\n[DEBUG] Objeto productData construido para MongoDB (fila única):');
+          console.log(JSON.stringify(productData, null, 2));
+          console.log('--- Fin DEBUG ---\n');
+      }
+      // <<< Fin DEBUG >>>
 
       operations.push({
         updateOne: {

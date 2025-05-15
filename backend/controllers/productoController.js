@@ -38,34 +38,89 @@ const cargarProductosDesdeExcel = async (req, res) => {
 
         for (const row of data) {
             // Mapeo cuidadoso de Excel a Schema
+
+            // Convertir fechas de Excel si es necesario (Excel almacena fechas como números)
+            let fechaCotizacionExcel = row['fecha cotizacion'];
+            if (typeof fechaCotizacionExcel === 'number') {
+                // Es un número de serie de fecha de Excel, convertir a objeto Date de JavaScript
+                // El epoch de Excel es 30 de diciembre de 1899 para Windows (25569 días antes del epoch de Unix)
+                // O 1 de enero de 1904 para Mac (24107 días antes del epoch de Unix)
+                // Usaremos el de Windows por ser más común.
+                fechaCotizacionExcel = new Date(Date.UTC(0, 0, fechaCotizacionExcel - 1, 0, 0, 0) - (25569 * 24 * 60 * 60 * 1000));
+            } else if (typeof fechaCotizacionExcel === 'string') {
+                // Si es un string, intentar parsearlo. Ajustar el formato si es necesario.
+                const parsedDate = new Date(fechaCotizacionExcel);
+                if (!isNaN(parsedDate.getTime())) {
+                    fechaCotizacionExcel = parsedDate;
+                } else {
+                    console.warn(`[Excel Load] No se pudo parsear la fecha '${fechaCotizacionExcel}' para ${row.Codigo_Producto}. Se dejará como undefined.`);
+                    fechaCotizacionExcel = undefined; // o null, o dejar que falle la validación del schema si es requerida
+                }
+            } else if (fechaCotizacionExcel) {
+                 console.warn(`[Excel Load] Formato de fecha inesperado para '${fechaCotizacionExcel}' para ${row.Codigo_Producto}. Se intentará usar tal cual.`);
+            }
+
+
             let productoData = {
                 Codigo_Producto: row.Codigo_Producto,
-                categoria: row.categoria,
-                peso_kg: row.peso_kg,
+                // categoria: row.categoria, // 'categoria' a nivel raíz fue eliminada del schema, verificar si aún está en Excel y dónde debe ir.
+                peso_kg: parseFloat(row.peso_kg) || undefined,
                 caracteristicas: {
                     nombre_del_producto: row.nombre_del_producto,
                     modelo: row.modelo
                 },
                 dimensiones: {
-                    largo_cm: row.largo_cm,
-                    ancho_cm: row.ancho_cm,
-                    alto_cm: row.alto_cm
+                    // Asumiendo que el schema espera números para las dimensiones en mm
+                    largo_mm: parseFloat(row.largo_mm || row.largo_m * 1000 || row.largo_cm * 10) || undefined,
+                    ancho_mm: parseFloat(row.ancho_mm || row.ancho_m * 1000 || row.ancho_cm * 10) || undefined,
+                    alto_mm: parseFloat(row.alto_mm || row.alto_m * 1000 || row.alto_cm * 10) || undefined
+                },
+                datos_contables: {
+                    costo_fabrica: parseFloat(row['costo fabrica']) || undefined,
+                    divisa_costo: row.divisa_costo || 'EUR', // Tomar del Excel si existe, sino default a EUR
+                    fecha_cotizacion: fechaCotizacionExcel // Usar la fecha procesada
+                    // Asegurarse que otros campos de datos_contables como costo_ano_cotizacion se mapeen si están en Excel
+                    // costo_ano_cotizacion: parseInt(row['costo_ano_cotizacion']) || undefined
                 },
                 tipo: row.tipo,
                 familia: row.familia,
                 proveedor: row.proveedor,
                 procedencia: row.procedencia,
                 nombre_comercial: row.nombre_comercial,
-                descripcion: row.descripcion,
+                descripcion: row.descripcion, 
                 clasificacion_easysystems: row.clasificacion_easysystems,
                 codigo_ea: row.codigo_ea,
-                especificaciones_tecnicas: {}, // Inicializar
-                metadata: {}, // Inicializar
-                dimensiones_json: row.dimensiones_json, // Mantener si existen en Excel
-                especificaciones_tecnicas_json: row.especificaciones_tecnicas_json,
-                opciones_json: row.opciones_json,
-                metadata_json: row.metadata_json,
+                es_opcional: row.es_opcional === 'TRUE' || row.es_opcional === true || row.es_opcional === 'true',
+                producto: row.producto, // Este es el campo 'tipo de producto' o 'familia de producto' según el Excel
+
+                // Mantener estos si aún son relevantes y están en el Excel y schema
+                especificaciones_tecnicas: {}, 
+                metadata: {}, 
+                // Los campos _json podrían ya no ser necesarios si el schema principal maneja los objetos directamente
+                // dimensiones_json: row.dimensiones_json, 
+                // especificaciones_tecnicas_json: row.especificaciones_tecnicas_json,
+                // opciones_json: row.opciones_json,
+                // metadata_json: row.metadata_json,
             };
+            
+            // Limpiar campos undefined para que no se guarden explícitamente como null a menos que se desee
+            Object.keys(productoData).forEach(key => {
+                if (productoData[key] === undefined) {
+                    delete productoData[key];
+                }
+                if (typeof productoData[key] === 'object' && productoData[key] !== null) {
+                    Object.keys(productoData[key]).forEach(subKey => {
+                        if (productoData[key][subKey] === undefined) {
+                            delete productoData[key][subKey];
+                        }
+                    });
+                    // Si el sub-objeto quedó vacío después de limpiar, eliminarlo también
+                    if (Object.keys(productoData[key]).length === 0) {
+                         delete productoData[key];
+                    }
+                }
+            });
+
 
             // Validación básica usando los campos requeridos del Schema
             const tempProduct = new Producto(productoData); // Crear instancia temporal para validación
