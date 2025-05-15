@@ -889,6 +889,24 @@ export default function EquiposPanel() {
   };
   // --- FIN DE FUNCIONES MOVIDAS ---
 
+  // --- NUEVA FUNCIÓN PARA MANEJAR LA ELIMINACIÓN DE UN EQUIPO PRINCIPAL DESDE DetallesCargaPanel ---
+  const handleEliminarPrincipalDeCarga = (codigoPrincipalAEliminar: string) => {
+    setDatosParaDetallesCarga(prevDatos => 
+      prevDatos.filter(item => item.principal.codigo_producto !== codigoPrincipalAEliminar)
+    );
+    // También actualizamos el set de productos seleccionados para cotizar para reflejar la eliminación
+    setProductosSeleccionadosParaCotizar(prevSeleccionados => {
+      const nuevosSeleccionados = new Set(prevSeleccionados);
+      nuevosSeleccionados.delete(codigoPrincipalAEliminar);
+      return nuevosSeleccionados;
+    });
+    // Opcional: si quieres que al eliminar el último item, se vuelva al paso anterior o se muestre un mensaje
+    // if (datosParaDetallesCarga.length === 1 && datosParaDetallesCarga[0].principal.codigo_producto === codigoPrincipalAEliminar) {
+    //   // Volver al paso 0 o manejar estado vacío
+    //   setPasoCotizacion(0); 
+    // }
+  };
+
   // RENDERIZADO PRINCIPAL
   if (pasoCotizacion === 3) {
     return (
@@ -907,6 +925,7 @@ export default function EquiposPanel() {
         onVolver={handleVolverDesdeDetalles}
         onSiguiente={handleSiguienteDesdeDetalles}
         onEliminarOpcionalDePrincipal={handleEliminarOpcionalConfirmado}
+        onEliminarPrincipal={handleEliminarPrincipalDeCarga} // <<< PASAR LA NUEVA FUNCIÓN
       />
     );
   }
