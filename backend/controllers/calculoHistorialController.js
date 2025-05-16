@@ -188,8 +188,8 @@ const generarHtmlParaPdf = (datos) => {
     const { 
         itemsParaCotizar, 
         resultadosCalculados, 
-        nombrePerfil, 
-        anoEnCursoGlobal,
+        // nombrePerfil, // No se usa directamente en el nuevo diseño
+        // anoEnCursoGlobal, // No se usa directamente en el nuevo diseño
         empresaQueCotiza,
         clienteNombre,
         clienteRut,
@@ -213,75 +213,80 @@ const generarHtmlParaPdf = (datos) => {
         formaPago
     } = calculoHistorialCompleto; 
 
-    // Datos de la empresa que cotiza (ejemplo, podrían ser configurables o venir de otro lado)
     const miEmpresa = {
         nombre: empresaQueCotiza || "Nombre de Mi Empresa S.A.",
-        rut: "76.123.456-7",
-        direccion: "Av. Siempre Viva 742, Springfield",
-        ciudad: "Santiago",
-        pais: "Chile",
-        telefono: "+56 2 2123 4567",
-        email: emisorEmail || "ventas@miempresa.cl",
-        logoUrl: "" // URL eliminada
+        rut: "76.123.456-7", // Usar el RUT real de la empresa que cotiza
+        direccion: "Av. Siempre Viva 742, Springfield", // Usar la dirección real
+        ciudad: "Santiago", // Usar ciudad real
+        pais: "Chile", // Usar país real
+        telefono: "+56 2 2123 4567", // Usar teléfono real
+        email: emisorEmail || "ventas@miempresa.cl", // Usar email real del emisor o general
+        // logoUrl: "" // No se usa logo en el diseño de EcoAlliance
     };
+    // Si cotizacionDetails tiene datos más específicos para 'miEmpresa', se podrían usar aquí.
+    // Por ejemplo, si cotizacionDetails.emisorRut, cotizacionDetails.emisorDireccion etc.
 
     let itemsHtml = '';
     let subtotalNetoGeneral = 0;
-    let contadorItem = 1;
+    
+    const primerProductoPrincipal = itemsParaCotizar.length > 0 ? itemsParaCotizar[0].principal.nombre_del_producto : "Servicios Varios";
+    const tituloDocumento = `${primerProductoPrincipal} - ${clienteNombre || 'Cliente'}`;
 
-    itemsParaCotizar.forEach(item => {
+    itemsParaCotizar.forEach((item, index) => {
         const productoPrincipal = item.principal;
         const keyProductoPrincipal = `principal-${productoPrincipal.codigo_producto}`;
-        const calculosProducto = resultadosCalculados.get(keyProductoPrincipal); // resultadosCalculados es un Map
+        // Asegurarse de que resultadosCalculados es un Map
+        const calculosProductoMap = resultadosCalculados instanceof Map ? resultadosCalculados : new Map(Object.entries(resultadosCalculados));
+        const calculosProducto = calculosProductoMap.get(keyProductoPrincipal);
 
         let precioUnitarioNetoPrincipal = 0;
         if (calculosProducto && calculosProducto.calculados && calculosProducto.calculados.precios_cliente) {
             precioUnitarioNetoPrincipal = calculosProducto.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
         }
-        subtotalNetoGeneral += precioUnitarioNetoPrincipal; // Asumiendo cantidad 1
+        const cantidadPrincipal = 1; // Asumiendo cantidad 1 por ahora
+        const totalPrincipal = precioUnitarioNetoPrincipal * cantidadPrincipal;
+        subtotalNetoGeneral += totalPrincipal;
 
         itemsHtml += `
             <tr>
-                <td>${contadorItem++}</td>
-                <td>${productoPrincipal.codigo_producto || 'N/A'}</td>
                 <td>
                     <b>${productoPrincipal.nombre_del_producto || 'Producto Principal Sin Nombre'}</b><br>
-                    <small>${productoPrincipal.Descripcion || ''}</small></td>
+                    <small style="white-space: pre-line;">${productoPrincipal.Descripcion || 'Sin descripción detallada.'}</small>
                 </td>
-                <td style="text-align:center;">1</td>
+                <td style="text-align:center;">${cantidadPrincipal}</td>
                 <td style="text-align:right;">${formatCLP(precioUnitarioNetoPrincipal)}</td>
-                <td style="text-align:right;">${formatCLP(precioUnitarioNetoPrincipal)}</td>
+                <td style="text-align:right;">${formatCLP(totalPrincipal)}</td>
             </tr>
         `;
 
         if (item.opcionales && item.opcionales.length > 0) {
             item.opcionales.forEach(opcional => {
                 const keyOpcional = `opcional-${opcional.codigo_producto}`;
-                const calculosOpcional = resultadosCalculados.get(keyOpcional);
+                const calculosOpcional = calculosProductoMap.get(keyOpcional);
                 let precioNetoOpcional = 0;
                 if (calculosOpcional && calculosOpcional.calculados && calculosOpcional.calculados.precios_cliente) {
                     precioNetoOpcional = calculosOpcional.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
                 }
-                subtotalNetoGeneral += precioNetoOpcional;
+                const cantidadOpcional = 1; // Asumiendo cantidad 1
+                const totalOpcional = precioNetoOpcional * cantidadOpcional;
+                subtotalNetoGeneral += totalOpcional;
 
                 itemsHtml += `
                     <tr class="opcional-row">
-                        <td></td>
-                        <td>${opcional.codigo_producto || 'N/A'}</td>
                         <td>
                             &nbsp;&nbsp;&nbsp;└─ <i>${opcional.nombre_del_producto || 'Opcional Sin Nombre'}</i><br>
-                            &nbsp;&nbsp;&nbsp;<small style="padding-left:15px;"><i>${opcional.Descripcion || ''}</i></small>
+                            &nbsp;&nbsp;&nbsp;<small style="padding-left:15px; white-space: pre-line;"><i>${opcional.Descripcion || 'Sin descripción detallada.'}</i></small>
                         </td>
-                        <td style="text-align:center;">1</td>
+                        <td style="text-align:center;">${cantidadOpcional}</td>
                         <td style="text-align:right;">${formatCLP(precioNetoOpcional)}</td>
-                        <td style="text-align:right;">${formatCLP(precioNetoOpcional)}</td>
+                        <td style="text-align:right;">${formatCLP(totalOpcional)}</td>
                     </tr>
                 `;
             });
         }
     });
 
-    const ivaPct = 0.19; // Asumir 19% IVA
+    const ivaPct = 0.19; 
     const montoIva = subtotalNetoGeneral * ivaPct;
     const totalGeneral = subtotalNetoGeneral + montoIva;
 
@@ -290,124 +295,288 @@ const generarHtmlParaPdf = (datos) => {
     <head>
         <meta charset="utf-8">
         <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; font-size: 10px; color: #333; }
-            .invoice-box { max-width: 800px; margin: auto; padding: 20px; border: 1px solid #eee; box-shadow: 0 0 10px rgba(0, 0, 0, .15); }
-            .header { text-align: center; margin-bottom: 20px; }
-            .header h2 { margin-top: 0; }
-            .info-grid-container { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-            .info-col-left, .info-col-right { font-size: 0.9em; }
-            .section-title { font-weight: bold; margin-bottom: 8px; color: #555; font-size: 1.05em; }
-            .detail-item { margin-bottom: 4px; display: flex; }
-            .detail-item .label { font-weight: bold; width: 100px; color: #555; flex-shrink: 0; }
-            .detail-item .value { flex-grow: 1; }
+            body { 
+                font-family: Arial, sans-serif; 
+                font-size: 12px; 
+                color: #333;
+                background-color: #ffffff;
+                margin: 0;
+                padding: 20px;
+            }
+            .container {
+                max-width: 900px; /* Ajustado para más contenido */
+                margin: auto;
+                border: 1px solid #ccc; /* Borde general sutil */
+                padding: 25px;
+            }
+            .header-info {
+                overflow: auto; /* Clearfix */
+                margin-bottom: 30px;
+                padding-bottom: 20px;
+                border-bottom: 1px solid #eee;
+            }
+            .company-rut {
+                font-size: 11px;
+                color: #555;
+                margin-bottom:15px;
+            }
+            .document-title {
+                font-size: 22px;
+                font-weight: bold;
+                color: #2c3e50;
+                margin-bottom: 25px;
+            }
 
-            .config-details-table { width: 100%; margin-top: 5px; }
-            .config-details-table td { padding: 3px 0; vertical-align: top; }
-            .config-details-table td.label { font-weight: bold; width: 130px; color: #555; }
+            .info-columns {
+                overflow: auto; /* Clearfix */
+                margin-bottom: 20px;
+            }
+            .info-columns .column {
+                float: left;
+                width: 48%; /* Dos columnas con pequeño gap */
+            }
+            .info-columns .column.right {
+                float: right;
+            }
+            .info-columns h3 {
+                font-size: 14px;
+                font-weight: bold;
+                color: #3498db;
+                margin-top: 0;
+                margin-bottom: 10px;
+                border-bottom: 1px solid #eee;
+                padding-bottom: 5px;
+            }
+            .info-columns p {
+                margin: 0 0 6px 0;
+                line-height: 1.5;
+            }
+            .info-columns p strong { /* Para etiquetas como "Email:", "Teléfono:" */
+                font-weight: bold;
+                color: #555;
+            }
+
+            .comments-section {
+                margin-bottom: 30px;
+                padding: 15px;
+                background-color: #f9f9f9;
+                border-radius: 4px;
+            }
+            .comments-section h3 {
+                font-size: 14px;
+                font-weight: bold;
+                color: #3498db;
+                margin-top: 0;
+                margin-bottom: 10px;
+            }
+            .comments-section p {
+                margin: 0 0 8px 0;
+                line-height: 1.6;
+            }
+            .comments-section .label { /* Para etiquetas en Comentarios (Términos de pago, etc) */
+                font-weight: bold;
+                color: #444;
+            }
+
+            .items-table-container {
+                margin-bottom: 30px;
+            }
+            .items-table-container h2 {
+                font-size: 16px;
+                color: #2c3e50;
+                margin-bottom: 10px;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 5px;
+            }
+            table.items {
+                width: 100%;
+                border-collapse: collapse;
+            }
+            table.items th, table.items td {
+                border: 1px solid #ddd;
+                padding: 8px 10px;
+                text-align: left;
+                font-size: 11px;
+            }
+            table.items th {
+                background-color: #f2f2f2;
+                font-weight: bold;
+                color: #333;
+            }
+            table.items .opcional-row td {
+                background-color: #fcfcfc;
+                font-size: 10.5px;
+            }
+            table.items small {
+                font-size: 10px;
+                color: #666;
+            }
+
+            .totals-section {
+                margin-bottom: 30px;
+                overflow: auto; /* Clearfix */
+            }
+            .totals-table {
+                float: right;
+                width: 40%; /* Ajustar ancho según necesidad */
+            }
+            .totals-table td {
+                padding: 6px 0;
+                font-size: 12px;
+            }
+            .totals-table td.label {
+                text-align: right;
+                font-weight: bold;
+                color: #555;
+                padding-right: 15px;
+            }
+            .totals-table td.value {
+                text-align: right;
+                font-weight: bold;
+                color: #2c3e50;
+            }
+            .totals-table tr.grand-total td {
+                font-size: 14px;
+                color: #3498db;
+                border-top: 2px solid #3498db;
+                padding-top: 8px;
+            }
             
-            .items-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-            .items-table th, .items-table td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-            .items-table th { background-color: #f2f2f2; font-weight: bold; }
-            .opcional-row td { font-style: italic; color: #555; background-color: #fdfdfd; }
-            .opcional-row small { color: #777; }
-            .totals-table { width: 100%; margin-top: 20px; }
-            .totals-table td { padding: 5px; }
-            .totals-table .label { text-align: right; font-weight: bold; width: 75%; }
-            .totals-table .value { text-align: right; width: 25%; }
-            .terms, .comments { margin-top: 20px; padding-top:10px; border-top: 1px solid #eee; font-size: 0.9em; }
-            .terms strong, .comments strong { display: block; margin-bottom: 5px; color: #555; }
-            .footer { font-size: 0.8em; color: #777; margin-top: 30px; border-top: 1px solid #ccc; padding-top:10px; text-align: center; }
+            .conditions-section {
+                margin-bottom: 30px;
+            }
+            .conditions-section h2 {
+                font-size: 16px;
+                color: #2c3e50;
+                margin-bottom: 10px;
+                border-bottom: 2px solid #3498db;
+                padding-bottom: 5px;
+            }
+            .conditions-section h4 {
+                font-size: 13px;
+                font-weight: bold;
+                color: #444;
+                margin-top: 15px;
+                margin-bottom: 5px;
+            }
+            .conditions-section p {
+                font-size: 11px;
+                line-height: 1.5;
+                color: #555;
+                margin-bottom: 8px;
+            }
+
+            .footer-contact {
+                margin-top: 40px;
+                padding-top: 20px;
+                border-top: 1px solid #ccc;
+                text-align: center;
+                font-size: 11px;
+                color: #777;
+            }
+            .footer-contact p {
+                margin: 3px 0;
+            }
+            .footer-contact strong {
+                color: #555;
+            }
+            /* No page-break-before for items-table by default, to mimic example */
         </style>
     </head>
     <body>
-        <div class="invoice-box">
-            <div class="header">
-                <h2>CONFIGURACION</h2>
+        <div class="container">
+            <div class="header-info">
+                <div class="company-rut">${miEmpresa.rut}</div>
+                <div class="document-title">${tituloDocumento}</div>
             </div>
 
-            <div class="info-grid-container">
-                <div class="info-col-left">
-                    <div class="section-title">Datos del Emisor</div>
-                    <div class="detail-item"><span class="label">Empresa:</span><span class="value">${miEmpresa.nombre}</span></div>
-                    <div class="detail-item"><span class="label">RUT:</span><span class="value">${miEmpresa.rut}</span></div>
-                    <div class="detail-item"><span class="label">Dirección:</span><span class="value">${miEmpresa.direccion}</span></div>
-                    <div class="detail-item"><span class="label">Ciudad:</span><span class="value">${miEmpresa.ciudad}, ${miEmpresa.pais}</span></div>
-                    <div class="detail-item"><span class="label">Teléfono:</span><span class="value">${miEmpresa.telefono}</span></div>
-                    <div class="detail-item"><span class="label">Email:</span><span class="value">${miEmpresa.email}</span></div>
-                    ${emisorNombre ? `<div class="detail-item"><span class="label">Atención:</span><span class="value">${emisorNombre}${emisorAreaComercial ? ` (${emisorAreaComercial})` : ''}</span></div>` : ''}
-                    
-                    <div class="section-title" style="margin-top: 20px;">Datos del Cliente</div>
-                    <div class="detail-item"><span class="label">Cliente:</span><span class="value">${clienteNombre || 'N/A'}</span></div>
-                    ${clienteRut ? `<div class="detail-item"><span class="label">RUT:</span><span class="value">${clienteRut}</span></div>` : ''}
-                    ${clienteDireccion ? `<div class="detail-item"><span class="label">Dirección:</span><span class="value">${clienteDireccion}</span></div>` : ''}
-                    ${(clienteComuna || clienteCiudad || clientePais) ? `<div class="detail-item"><span class="label">Ubicación:</span><span class="value">${clienteComuna ? `${clienteComuna}, ` : ''} ${clienteCiudad || ''} ${clientePais ? `, ${clientePais}` : ''}</span></div>` : ''}
-                    ${clienteContactoNombre ? `<div class="detail-item"><span class="label">Contacto:</span><span class="value">${clienteContactoNombre}</span></div>` : ''}
-                    ${clienteContactoTelefono ? `<div class="detail-item"><span class="label">Teléfono:</span><span class="value">${clienteContactoTelefono}</span></div>` : ''}
-                    ${clienteContactoEmail ? `<div class="detail-item"><span class="label">Email:</span><span class="value">${clienteContactoEmail}</span></div>` : ''}
+            <div class="info-columns">
+                <div class="column left">
+                    <h3>${clienteNombre || 'Datos del Cliente'}</h3>
+                    ${clienteDireccion ? `<p>${clienteDireccion}</p>` : ''}
+                    ${(clienteComuna || clienteCiudad) ? `<p>${clienteComuna ? clienteComuna + ', ' : ''}${clienteCiudad || ''}${clientePais ? ', ' + clientePais : ''}</p>` : ''}
+                    ${clienteContactoNombre ? `<p><strong>Atención:</strong> ${clienteContactoNombre}</p>` : ''}
+                    ${clienteContactoEmail ? `<p><strong>Email:</strong> ${clienteContactoEmail}</p>` : ''}
+                    ${clienteContactoTelefono ? `<p><strong>Teléfono:</strong> ${clienteContactoTelefono}</p>` : ''}
+                    ${clienteRut ? `<p><strong>RUT:</strong> ${clienteRut}</p>` : ''}
                 </div>
-                
-                <div class="info-col-right">
-                    <div class="section-title">Detalles de la Configuración</div>
-                    <table class="config-details-table">
-                        <tr><td class="label">Nº Configuración:</td><td>${numeroCotizacion || 'Por definir'}</td></tr>
-                        <tr><td class="label">Fecha Emisión:</td><td>${fechaCreacionCotizacion ? new Date(fechaCreacionCotizacion).toLocaleDateString('es-CL') : 'N/A'}</td></tr>
-                        <tr><td class="label">Validez Oferta:</td><td>${fechaCaducidadCotizacion ? new Date(fechaCaducidadCotizacion).toLocaleDateString('es-CL') : 'N/A'}</td></tr>
-                        ${referenciaDocumento ? `<tr><td class="label">Referencia:</td><td>${referenciaDocumento}</td></tr>` : ''}
-                        ${nombrePerfil ? `<tr><td class="label">Perfil Aplicado:</td><td>${nombrePerfil}</td></tr>` : ''}
-                    </table>
+                <div class="column right">
+                    <h3>Detalles del Presupuesto</h3>
+                    <p><strong>Referencia:</strong> ${referenciaDocumento || 'N/A'}</p>
+                    <p><strong>Fecha Creación:</strong> ${fechaCreacionCotizacion ? new Date(fechaCreacionCotizacion).toLocaleDateString('es-CL') : 'N/A'}</p>
+                    <p><strong>Fecha Caducidad:</strong> ${fechaCaducidadCotizacion ? new Date(fechaCaducidadCotizacion).toLocaleDateString('es-CL') : 'N/A'}</p>
+                    <br>
+                    <p><strong>Presupuesto creado por:</strong></p>
+                    <p>${emisorNombre || 'Departamento Comercial'}</p>
+                    ${emisorAreaComercial ? `<p>${emisorAreaComercial}</p>` : ''}
+                    ${emisorEmail ? `<p><a href="mailto:${emisorEmail}">${emisorEmail}</a></p>` : ''}
                 </div>
             </div>
 
-            <table class="items-table">
-                <thead>
-                    <tr>
-                        <th style="width:5%;">Ítem</th>
-                        <th style="width:15%;">Código</th>
-                        <th style="width:45%;">Descripción</th>
-                        <th style="width:10%; text-align:center;">Cant.</th>
-                        <th style="width:12.5%; text-align:right;">P. Neto Unit.</th>
-                        <th style="width:12.5%; text-align:right;">P. Neto Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${itemsHtml}
-                </tbody>
-            </table>
+            <div class="comments-section">
+                <h3>Comentarios ${emisorNombre ? 'de ' + emisorNombre.split(' ')[0] : ''}</h3>
+                <p><span class="label">COTIZACIÓN Nº:</span> ${numeroCotizacion || 'N/A'}</p>
+                ${terminosPago ? `<p><span class="label">Términos de Pago:</span> ${terminosPago}</p>` : ''}
+                ${medioPago ? `<p><span class="label">Medio de Pago:</span> ${medioPago}</p>` : ''}
+                ${formaPago ? `<p><span class="label">Forma de Pago:</span> ${formaPago}</p>` : ''}
+                ${comentariosAdicionales ? `<br><p style="white-space: pre-wrap;">${comentariosAdicionales}</p>` : ''}
+            </div>
 
-            <table class="totals-table">
-                <tr>
-                    <td class="label">SUBTOTAL NETO:</td>
-                    <td class="value">${formatCLP(subtotalNetoGeneral)}</td>
-                </tr>
-                <tr>
-                    <td class="label">IVA (${(ivaPct * 100).toFixed(0)}%):</td>
-                    <td class="value">${formatCLP(montoIva)}</td>
-                </tr>
-                <tr>
-                    <td class="label" style="font-size: 1.1em;">TOTAL GENERAL:</td>
-                    <td class="value" style="font-size: 1.1em;"><b>${formatCLP(totalGeneral)}</b></td>
-                </tr>
-            </table>
+            <div class="items-table-container">
+                <h2>Productos y servicios</h2>
+                <table class="items">
+                    <thead>
+                        <tr>
+                            <th style="width:55%;">Artículo y descripción</th>
+                            <th style="width:10%; text-align:center;">Cantidad</th>
+                            <th style="width:17.5%; text-align:right;">Precio unitario</th>
+                            <th style="width:17.5%; text-align:right;">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${itemsHtml}
+                    </tbody>
+                </table>
+            </div>
 
-            ${(terminosPago || medioPago || formaPago) ? 
-            `<div class="terms">
-                <strong>CONDICIONES COMERCIALES:</strong>
-                ${terminosPago ? `<div>Términos de Pago: ${terminosPago}</div>` : ''}
-                ${medioPago ? `<div>Medio de Pago: ${medioPago}</div>` : ''}
-                ${formaPago ? `<div>Forma de Pago: ${formaPago}</div>` : ''}
-            </div>` : ''}
-
-            ${comentariosAdicionales ? 
-            `<div class="comments">
-                <strong>COMENTARIOS ADICIONALES:</strong>
-                <div style="white-space: pre-wrap;">${comentariosAdicionales}</div>
-            </div>` : ''}
+            <div class="totals-section">
+                <table class="totals-table">
+                    <tbody>
+                        <tr>
+                            <td class="label">Subtotal:</td>
+                            <td class="value">${formatCLP(subtotalNetoGeneral)}</td>
+                        </tr>
+                        <tr>
+                            <td class="label">IVA (${(ivaPct * 100).toFixed(0)}%):</td>
+                            <td class="value">${formatCLP(montoIva)}</td>
+                        </tr>
+                        <tr class="grand-total">
+                            <td class="label">Total:</td>
+                            <td class="value">${formatCLP(totalGeneral)}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
             
-            <div class="footer">
-                Este documento es una cotización y no constituye una factura.<br>
-                Precios sujetos a cambio sin previo aviso después de la fecha de validez.
-                ID de Cálculo Interno: ${calculoHistorialCompleto._id.toString()}
+            <div class="conditions-section">
+                <h2>Condiciones de compra</h2>
+                <h4>1- Antecedentes Técnicos Generales.</h4>
+                <p>Los antecedentes técnicos de los productos y/o servicios cotizados, se encuentran en los documentos adjuntos a la presente cotización (si aplica).</p>
+                <h4>2- Precio.</h4>
+                <p>Los valores corresponden al precio neto más IVA, salvo que se indique lo contrario.</p>
+                <h4>3- Plazo de Entrega.</h4>
+                <p>El tiempo de entrega es estimativo y se confirmará con la Orden de Compra. La entrega se hace efectiva en bodega de ${miEmpresa.nombre}, o lugar a convenir.</p>
+                <h4>4- Garantía.</h4>
+                <p>El equipo se encuentra garantizado por un plazo de 12 meses por falla o defecto de construcción y/o material, no imputable al mal uso del equipo. Comprende piezas y partes, con la exclusión de aquellas que presenten desgaste natural por uso.</p>
             </div>
+
+            <div class="footer-contact">
+                <p><strong>${miEmpresa.nombre}</strong></p>
+                <p>${miEmpresa.direccion}, ${miEmpresa.ciudad}, ${miEmpresa.pais}</p>
+                <p>Teléfono: ${miEmpresa.telefono} | Email: <a href="mailto:${miEmpresa.email}">${miEmpresa.email}</a></p>
+                ${calculoHistorialCompleto._id ? `<p style="font-size:9px; color: #aaa; margin-top:10px;">ID de Cálculo Interno: ${calculoHistorialCompleto._id.toString()}</p>` : ''}
+            </div>
+
         </div>
     </body>
     </html>
