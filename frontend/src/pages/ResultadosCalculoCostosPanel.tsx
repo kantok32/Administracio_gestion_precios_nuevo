@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Calculator, ListTree, DollarSign, CloudOff } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Calculator, ListTree, DollarSign, CloudOff, FileText } from 'lucide-react';
 import {
   Button, Typography, Paper, Box, Container, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, List, ListItem, ListItemText,
@@ -341,6 +341,30 @@ const fetchCalculoDetallado = async (
   }
 };
 
+// Nueva función para transformar los datos para ConfiguracionPanel
+function transformarLineasParaConfiguracion(lineas: LineaDeTrabajoConCosto[], nombrePerfilFallback?: string): Record<string, CalculationResult> {
+  const resultados: Record<string, CalculationResult> = {};
+  lineas.forEach(linea => {
+    const keyPrincipal = `principal-${linea.principal.codigo_producto || `P_ID_DESCONOCIDO_${Math.random().toString(36).substring(7)}`}`;
+    const fallbackProfileNamePrincipal = linea.detalleCalculoPrincipal?.profileName || nombrePerfilFallback;
+    resultados[keyPrincipal] = linea.detalleCalculoPrincipal || { 
+      error: "Detalle de cálculo principal no disponible.", 
+      profileName: typeof fallbackProfileNamePrincipal === 'string' ? fallbackProfileNamePrincipal : "Perfil no especificado"
+    };
+
+    linea.opcionales.forEach((opcional, idx) => {
+      const keyOpcional = `opcional-${opcional.codigo_producto || `O_ID_DESCONOCIDO_${idx}_${Math.random().toString(36).substring(7)}`}`;
+      const detalleOpcional = linea.detallesCalculoOpcionales?.[idx];
+      const fallbackProfileNameOpcional = detalleOpcional?.profileName || nombrePerfilFallback;
+      resultados[keyOpcional] = detalleOpcional || { 
+        error: `Detalle de cálculo para opcional ${opcional.nombre_del_producto || idx+1} no disponible.`, 
+        profileName: typeof fallbackProfileNameOpcional === 'string' ? fallbackProfileNameOpcional : "Perfil no especificado"
+      };
+    });
+  });
+  return resultados;
+}
+
 export default function ResultadosCalculoCostosPanel() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -510,7 +534,7 @@ export default function ResultadosCalculoCostosPanel() {
     if (state && state.productosConOpcionalesSeleccionados) {
         navigate('/resumen-carga', { 
             state: { 
-                itemsParaCotizar: state.productosConOpcionalesSeleccionados,
+                itemsParaCotizar: state.productosConOpcionalesSeleccionados.map(item => ({principal: item.principal, opcionales: item.opcionales})), // Asegurar el formato correcto
                 selectedProfileId: selectedProfileId,
                 nombrePerfil: currentProfileData?.nombre_perfil,
             }
@@ -519,15 +543,33 @@ export default function ResultadosCalculoCostosPanel() {
         navigate('/equipos');
     }
   };
+  
+  const handleGenerarInformePDF = () => {
+    if (!lineasCalculadas || lineasCalculadas.length === 0) {
+      alert("No hay líneas calculadas para generar un informe.");
+      return;
+    }
+    if (!currentProfileData) {
+        alert("Por favor, seleccione un perfil de costos antes de generar el informe.");
+        return;
+    }
 
-  const handleNavegarAConfiguracionFinal = () => {
+    const itemsParaCotizarNavegacion = lineasCalculadas.map(lc => ({
+      principal: lc.principal,
+      opcionales: lc.opcionales
+    }));
+
+    const resultadosCalculadosNavegacion = transformarLineasParaConfiguracion(lineasCalculadas, currentProfileData.nombre_perfil);
+
     navigate('/configuracion-panel', {
-        state: {
-          lineasParaConfigurarCotizacion: lineasCalculadas,
-          selectedProfileId: selectedProfileId,
-          nombrePerfil: currentProfileData?.nombre_perfil,
-        }
-      });
+      state: {
+        itemsParaCotizar: itemsParaCotizarNavegacion,
+        resultadosCalculados: resultadosCalculadosNavegacion,
+        selectedProfileId: selectedProfileId,
+        nombrePerfil: currentProfileData.nombre_perfil, // currentProfileData no será null aquí debido a la guarda anterior
+        anoEnCursoGlobal: new Date().getFullYear(), 
+      }
+    });
   };
 
   if (isLoading && !isProfilesLoading) { 
@@ -673,11 +715,11 @@ export default function ResultadosCalculoCostosPanel() {
           <Button 
             variant="contained" 
             color="primary" 
-            startIcon={<ArrowRight />} 
-            onClick={handleNavegarAConfiguracionFinal}
-            disabled={isCalculating || lineasCalculadas.length === 0 || lineasCalculadas.some(l => !l.detalleCalculoPrincipal || l.detalleCalculoPrincipal.error)}
+            startIcon={<FileText />} 
+            onClick={handleGenerarInformePDF} 
+            disabled={isCalculating || lineasCalculadas.length === 0 || !currentProfileData || lineasCalculadas.some(l => !l.detalleCalculoPrincipal || l.detalleCalculoPrincipal.error)}
           >
-            Configurar Cotización y Datos Adicionales
+            Generar Informe PDF 
         </Button>
         </Box>
       </Paper>
