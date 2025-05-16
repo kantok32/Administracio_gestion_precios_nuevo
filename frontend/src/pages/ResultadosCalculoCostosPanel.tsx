@@ -216,7 +216,7 @@ export default function ResultadosCalculoCostosPanel() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as LocationState | null;
-  const [isLoading, setIsLoading] = useState(false); // Estado para feedback visual
+  const [isLoading, setIsLoading] = useState(false); // Mantener por si se usa para alguna precarga futura, aunque la acción principal cambia
 
   // Estado para controlar qué items PRINCIPALES están expandidos
   const [expandedPrincipales, setExpandedPrincipales] = useState<Record<string, boolean>>({});
@@ -312,10 +312,10 @@ export default function ResultadosCalculoCostosPanel() {
   const itemHeaderStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '10px 0' };
   const itemTitleStyle: React.CSSProperties = { fontSize: '1.2em', fontWeight: '600', color: '#343a40' };
 
-  const handleConfirmarYContinuar = async () => {
+  const handleNavegarAConfiguracion = () => {
     if (!state) {
-      console.error("Error: No hay estado disponible para procesar.");
-      alert("Error: No hay datos para procesar. Por favor, vuelve a intentarlo.");
+      console.error("Error: No hay estado disponible para pasar a la configuración.");
+      alert("Error: No hay datos para configurar la cotización. Por favor, vuelve a intentarlo.");
       return;
     }
 
@@ -329,87 +329,20 @@ export default function ResultadosCalculoCostosPanel() {
 
     if (!itemsParaCotizar || Object.keys(resultadosCalculados).length === 0) {
         console.error("Error: itemsParaCotizar o resultadosCalculados están vacíos.");
-        alert("Error: No hay items o resultados calculados para procesar.");
+        alert("Error: No hay items o resultados calculados para configurar.");
         return;
     }
-
-    setIsLoading(true);
-
-    try {
-      const backendUrl = '/api/calculos-historial/guardar-y-exportar';
-      
-      const response = await fetch(backendUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          // 'Authorization': `Bearer ${tuToken}`,
-        },
-        body: JSON.stringify({
-          itemsParaCotizar,
-          resultadosCalculados,
-          selectedProfileId,
-          nombrePerfil,
-          anoEnCursoGlobal
-        })
-      });
-
-      if (!response.ok) {
-        let errorMessage = `Error del servidor: ${response.status}`;
-        try {
-            const errorData = await response.json(); // Intenta obtener mensaje de error JSON del backend
-            errorMessage = errorData.message || errorData.error || errorMessage;
-        } catch (e) {
-            errorMessage = (await response.text()) || response.statusText || errorMessage; // Fallback a texto plano si no es JSON
-        }
-        console.error('Error al guardar y exportar:', errorMessage);
-        alert(`Error al procesar la solicitud: ${errorMessage}`);
-        setIsLoading(false);
-        return;
+    
+    // Navegar a la nueva página de configuración, pasando el estado actual
+    navigate('/configuracion-panel', {
+      state: {
+        itemsParaCotizar,
+        resultadosCalculados,
+        selectedProfileId,
+        nombrePerfil,
+        anoEnCursoGlobal
       }
-
-      // Manejo de la respuesta PDF
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('application/pdf')) {
-        const blob = await response.blob();
-        const filenameHeader = response.headers.get('Content-Disposition');
-        let filename = `CalculoCostos_${nombrePerfil || 'General'}_${new Date().toISOString().split('T')[0]}.pdf`; // Default
-        
-        if (filenameHeader) {
-          const parts = filenameHeader.split('filename=');
-          if (parts.length > 1) {
-            filename = parts[1].split(';')[0].replace(/["\']/g, ''); // Limpiar comillas y asegurar que es un nombre válido
-            if (!filename.toLowerCase().endsWith('.pdf')) {
-                filename += '.pdf'; // Asegurar extensión .pdf
-            }
-          }
-        }
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        window.URL.revokeObjectURL(url);
-
-        alert('¡Éxito! Los cálculos han sido guardados y el archivo PDF se ha descargado.');
-      } else {
-        // Si la respuesta es OK pero no es PDF (ej. solo mensaje de confirmación JSON)
-        try {
-            const jsonData = await response.json();
-            alert(jsonData.message || 'Operación completada, pero no se recibió un archivo PDF.');
-        } catch (e) {
-            alert('Operación completada, pero la respuesta no fue un archivo PDF ni JSON válido.');
-        }
-      }
-
-    } catch (error: any) {
-      console.error('Error en la función handleConfirmarYContinuar:', error);
-      alert(`Ocurrió un error inesperado: ${error.message || 'Revisa la consola para más detalles.'}`);
-    } finally {
-      setIsLoading(false);
-    }
+    });
   };
 
   return (
@@ -531,18 +464,18 @@ export default function ResultadosCalculoCostosPanel() {
       })}
 
       <div style={footerNavStyle}>
-        <Button variant="outlined" startIcon={<ArrowLeft />} onClick={() => navigate(-1)} style={secondaryButtonStyle}>
+        <Button variant="outlined" startIcon={<ArrowLeft />} onClick={() => navigate('/equipos')} /* style={secondaryButtonStyle} */ >
           Volver y Modificar
         </Button>
         <Button 
           variant="contained" 
           color="primary" 
-          onClick={handleConfirmarYContinuar} 
+          onClick={handleNavegarAConfiguracion}
           disabled={isLoading}
           style={{ marginTop: '20px', padding: '10px 20px' }}
           startIcon={isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
         >
-          Confirmar y Generar PDF
+          Configurar Cotización y Datos Adicionales
         </Button>
       </div>
     </div>

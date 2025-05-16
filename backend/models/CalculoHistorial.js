@@ -99,7 +99,45 @@ const CalculoHistorialSchema = new mongoose.Schema({
     usuarioId: { // Opcional, si se implementa autenticación para esta acción
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User' // Asegúrate que 'User' es el nombre correcto del modelo
-    }
+    },
+
+    // Campos de la cotización desde ConfiguracionPanel.tsx
+    empresaQueCotiza: { type: String, default: 'Nombre de tu Empresa Aquí' }, // Configurable
+    
+    // Datos del Cliente
+    clienteNombre: { type: String, required: false },
+    clienteRut: { type: String, required: false },
+    clienteDireccion: { type: String, required: false },
+    clienteComuna: { type: String, required: false },
+    clienteCiudad: { type: String, required: false },
+    clientePais: { type: String, required: false },
+    clienteContactoNombre: { type: String, required: false },
+    clienteContactoEmail: { type: String, required: false },
+    clienteContactoTelefono: { type: String, required: false },
+
+    // Datos del Documento (Cotización)
+    numeroCotizacion: { type: String, required: false }, // Podría ser generado
+    referenciaDocumento: { type: String, required: false },
+    fechaCreacionCotizacion: { type: Date, default: Date.now }, // Específico para la cotización
+    fechaCaducidadCotizacion: { type: Date, required: false },
+
+    // Datos del Emisor (Vendedor)
+    emisorNombre: { type: String, required: false },
+    emisorAreaComercial: { type: String, required: false },
+    emisorEmail: { type: String, required: false },
+
+    // Comentarios y Términos
+    comentariosAdicionales: { type: String, required: false },
+    terminosPago: { type: String, required: false },
+    medioPago: { type: String, required: false },
+    formaPago: { type: String, required: false },
+
+    // Campos que ya estaban y se renombraron/integraron:
+    // nombreCliente -> clienteNombre o clienteContactoNombre
+    // numeroCliente -> clienteContactoTelefono
+    // emailCliente -> clienteContactoEmail
+    // comentariosAdicionales -> ya está arriba
+
 }, {
     timestamps: true // Agrega createdAt y updatedAt automáticamente
 });
