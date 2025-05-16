@@ -9,20 +9,22 @@ import {
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { getPerfiles } from '../services/perfilService';
+import { guardarCalculoHistorial, CotizacionDetails } from '../services/calculoHistorialService';
+import {
+    ProductoConOpcionales,
+    CalculationResult,
+    LocationState,
+    LineaDeTrabajoConCosto
+} from '../types/calculoTypes';
 import { CostoPerfilData } from '../types';
 import { Producto } from '../types/product';
 
 // --- Tipos (deberían idealmente importarse de un archivo types.ts común si no lo están ya) ---
 interface DatosContables {
-  costo_fabrica?: number;
-  divisa_costo?: string;
-  fecha_cotizacion?: string;
-  [key: string]: any;
-}
-
-interface ProductoConOpcionales {
-  principal: Producto;
-  opcionales: Producto[];
+    costo_fabrica?: number;
+    divisa_costo?: string;
+    fecha_cotizacion?: string;
+    [key: string]: any;
 }
 
 interface GroupedPruebaResults {
@@ -33,27 +35,6 @@ interface GroupedPruebaResults {
     conversion_margen: Record<string, number | undefined>;
     precios_cliente: Record<string, number | undefined>;
     // Idealmente, cada sub-objeto tendría tipos más específicos
-}
-
-interface CalculationResult {
-    inputs?: any; 
-    calculados?: GroupedPruebaResults;
-    error?: string;
-    profileName?: string;
-}
-
-interface LocationState {
-  productosConOpcionalesSeleccionados?: ProductoConOpcionales[];
-  selectedProfileId?: string | null;
-  nombrePerfil?: string;
-  // anoEnCursoGlobal?: number; // Se usará el año actual directamente
-}
-
-interface LineaDeTrabajoConCosto extends ProductoConOpcionales {
-  costoBaseTotalEur: number;
-  detalleCalculoPrincipal?: CalculationResult;
-  detallesCalculoOpcionales?: CalculationResult[];
-  precioVentaTotalClienteCLPPrincipal?: number;
 }
 
 // --- Helpers de Formato (Similares a PerfilesPanel.tsx) ---
@@ -181,22 +162,22 @@ const RenderResultDetails: React.FC<{ detalle: CalculationResult | null, profile
         return <Alert severity="warning">Datos del cálculo detallado incompletos o en formato inesperado.</Alert>;
     }
     const formatValue = (value: any, key: string): string => {
-        if (typeof value === 'number') {
+                    if (typeof value === 'number') {
             if (key.toLowerCase().includes('_clp')) return formatCLP(value);
             else if (key.toLowerCase().endsWith('_eur')) return formatGenericCurrency(value, 'EUR');
             else if (key.toLowerCase().endsWith('_usd')) return formatGenericCurrency(value, 'USD');
             else if (key.toLowerCase().includes('_pct') || key.toLowerCase().startsWith('tasa_') || key.toLowerCase().includes('factor') || key.toLowerCase().includes('margen_adicional_pct') || key.toLowerCase().includes('descuento_cliente_pct')) return formatPercentDisplay(value);
             else if (key.toLowerCase().includes('tipo_cambio') || key.toLowerCase().includes('tipocambio')) return formatNumber(value, 6);
             else return formatNumber(value, 2);
-        } else if (value === undefined && inputs[key] !== undefined) {
-            const inputValue = inputs[key];
-            if (typeof inputValue === 'number') {
+                    } else if (value === undefined && inputs[key] !== undefined) {
+                        const inputValue = inputs[key];
+                        if (typeof inputValue === 'number') {
                 if (key.toLowerCase().includes('_clp')) return formatCLP(inputValue);
                 else if (key.toLowerCase().endsWith('_eur')) return formatGenericCurrency(inputValue, 'EUR');
                 else if (key.toLowerCase().endsWith('_usd')) return formatGenericCurrency(inputValue, 'USD');
                 else if (key.toLowerCase().includes('_pct') || key.toLowerCase().startsWith('tasa_')) return formatPercentDisplay(inputValue/100);
                 else return formatNumber(inputValue, 2);
-            } else {
+                        } else {
                 return String(inputValue); 
             }
         }
@@ -373,14 +354,21 @@ export default function ResultadosCalculoCostosPanel() {
   const [lineasCalculadas, setLineasCalculadas] = useState<LineaDeTrabajoConCosto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [errorCarga, setErrorCarga] = useState<string | null>(null);
-  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [saveErrorMessage, setSaveErrorMessage] = useState<string | null>(null);
+  const [savedCalculoId, setSavedCalculoId] = useState<string | null>(null);
+  const [latestCalculatedResults, setLatestCalculatedResults] = useState<Record<string, CalculationResult> | null>(null);
 
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
   const [perfilesList, setPerfilesList] = useState<CostoPerfilData[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<string>(state?.selectedProfileId || '');
   const [currentProfileData, setCurrentProfileData] = useState<CostoPerfilData | null>(null);
   const [isProfilesLoading, setIsProfilesLoading] = useState<boolean>(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  const anoActualGlobal = new Date().getFullYear();
 
   useEffect(() => {
     const cargarPerfilesDesdeAPI = async () => {
@@ -409,320 +397,393 @@ export default function ResultadosCalculoCostosPanel() {
           setPerfilesList([]);
         } finally {
           setIsProfilesLoading(false);
+          setIsLoading(false);
         }
       };
       cargarPerfilesDesdeAPI();
   }, [state?.selectedProfileId]);
 
-  const procesarLineasYCalcularDetalles = useCallback(async () => {
+  useEffect(() => {
     if (!state?.productosConOpcionalesSeleccionados || state.productosConOpcionalesSeleccionados.length === 0) {
-      setErrorCarga("No se recibieron datos de configuración para calcular. Por favor, vuelva a la selección de equipos.");
+      setErrorCarga("No se recibieron datos de configuración. Por favor, vuelva a la selección de equipos.");
       setLineasCalculadas([]);
       setIsLoading(false);
       return;
     }
-
     const productosParaProcesar = Array.isArray(state.productosConOpcionalesSeleccionados) ? state.productosConOpcionalesSeleccionados : [];
-
-    if (!currentProfileData) {
-      const lineasBase = productosParaProcesar.map((item: ProductoConOpcionales) => {
-        let costoBaseTotal = item.principal.datos_contables?.costo_fabrica || 0;
-        item.opcionales.forEach((opcional: Producto) => {
-          costoBaseTotal += opcional.datos_contables?.costo_fabrica || 0;
-        });
-        return {
-          ...item,
-          costoBaseTotalEur: costoBaseTotal,
-          detalleCalculoPrincipal: { error: "Seleccione un perfil para ver el cálculo detallado.", profileName: "Perfil no seleccionado" },
-          detallesCalculoOpcionales: item.opcionales.map(() => ({ error: "Seleccione un perfil para ver el cálculo detallado.", profileName: "Perfil no seleccionado" })),
-          precioVentaTotalClienteCLPPrincipal: undefined,
-        };
+    const lineasBase = productosParaProcesar.map((item: ProductoConOpcionales) => {
+      let costoBaseTotal = item.principal.datos_contables?.costo_fabrica || 0;
+      item.opcionales.forEach((opcional: Producto) => {
+        costoBaseTotal += opcional.datos_contables?.costo_fabrica || 0;
       });
-      setLineasCalculadas(lineasBase);
-      setIsLoading(false);
-      setIsCalculating(false);
-      return;
+      return {
+        ...item,
+        costoBaseTotalEur: costoBaseTotal,
+        detalleCalculoPrincipal: undefined, 
+        detallesCalculoOpcionales: undefined,
+        precioVentaTotalClienteCLPPrincipal: undefined,
+      };
+    });
+    setLineasCalculadas(lineasBase);
+    setSavedCalculoId(null);
+    setSaveSuccessMessage(null);
+    setSaveErrorMessage(null);
+    setIsLoading(false);
+  }, [state?.productosConOpcionalesSeleccionados]);
+  
+  const realizarCalculoDetallado = useCallback(async (lineasParaCalcular: LineaDeTrabajoConCosto[]): Promise<LineaDeTrabajoConCosto[] | null> => {
+    if (!currentProfileData || lineasParaCalcular.length === 0) {
+        setErrorCarga("Seleccione un perfil y asegúrese de que haya productos cargados para calcular.");
+        return null; 
     }
 
-    setIsCalculating(true);
     setErrorCarga(null);
+    setSaveSuccessMessage(null); 
+    setSaveErrorMessage(null);
+    setSavedCalculoId(null);
 
-    const anoActual = new Date().getFullYear();
-    const tcEurUsdActual = 1.117564;
+    const tcEurUsdActual = 1.117564; 
 
     const getFechaCotizacionAsString = (fecha: string | Date | undefined): string | undefined => {
-        if (typeof fecha === 'string' || fecha === undefined) {
-            return fecha;
-        }
-        if (fecha instanceof Date) {
-            return fecha.toISOString();
-        }
-        return undefined; // o maneja otros casos como prefieras
+        if (typeof fecha === 'string' || fecha === undefined) return fecha;
+        if (fecha instanceof Date) return fecha.toISOString();
+        return undefined;
     };
 
     try {
-      const lineasConDetallePromises = productosParaProcesar.map(async (item: ProductoConOpcionales) => {
-        let costoBaseTotal = item.principal.datos_contables?.costo_fabrica || 0;
-        item.opcionales.forEach((opcional: Producto) => {
-          costoBaseTotal += opcional.datos_contables?.costo_fabrica || 0;
-        });
-
+      const lineasConDetallePromises = lineasParaCalcular.map(async (lineaExistente) => {
         const detallePrincipal = await fetchCalculoDetallado(
-          item.principal.datos_contables?.costo_fabrica || 0,
-          getFechaCotizacionAsString(item.principal.datos_contables?.fecha_cotizacion),
+          lineaExistente.principal.datos_contables?.costo_fabrica || 0,
+          getFechaCotizacionAsString(lineaExistente.principal.datos_contables?.fecha_cotizacion),
           currentProfileData._id,
-          anoActual,
+          anoActualGlobal,
           tcEurUsdActual,
           currentProfileData.nombre_perfil
         );
 
-        const detallesOpcionalesPromises = item.opcionales.map(opcional => 
-          fetchCalculoDetallado(
-            opcional.datos_contables?.costo_fabrica || 0,
-            getFechaCotizacionAsString(opcional.datos_contables?.fecha_cotizacion),
-            currentProfileData._id,
-            anoActual,
-            tcEurUsdActual,
-            currentProfileData.nombre_perfil
-          )
-        );
-        const detallesOpcionalesResultados = await Promise.all(detallesOpcionalesPromises);
+        let detallesOpcionalesResultados: CalculationResult[] | undefined = undefined;
+        if (lineaExistente.opcionales && lineaExistente.opcionales.length > 0) {
+            const detallesOpcPromises = lineaExistente.opcionales.map(opcional => 
+              fetchCalculoDetallado(
+                opcional.datos_contables?.costo_fabrica || 0,
+                getFechaCotizacionAsString(opcional.datos_contables?.fecha_cotizacion),
+                currentProfileData._id,
+                anoActualGlobal,
+                tcEurUsdActual,
+                currentProfileData.nombre_perfil
+              )
+            );
+            detallesOpcionalesResultados = await Promise.all(detallesOpcPromises);
+        }
         
         const precioCLPPrincipal = detallePrincipal?.calculados?.precios_cliente?.precioVentaTotalClienteCLP;
 
         return {
-          ...item,
-          costoBaseTotalEur: costoBaseTotal,
+          ...lineaExistente,
           detalleCalculoPrincipal: detallePrincipal,
           detallesCalculoOpcionales: detallesOpcionalesResultados,
           precioVentaTotalClienteCLPPrincipal: typeof precioCLPPrincipal === 'number' ? precioCLPPrincipal : undefined,
         };
       });
 
-      const nuevasLineasCalculadas = await Promise.all(lineasConDetallePromises);
-      setLineasCalculadas(nuevasLineasCalculadas);
-
-    } catch (error) {
-      console.error("[ResultadosCalculoCostosPanel] Error en Promise.all al calcular detalles:", error);
-      setErrorCarga("Ocurrió un error al obtener los cálculos detallados para una o más líneas.");
-    } finally {
-      setIsCalculating(false);
-      setIsLoading(false);
+      return await Promise.all(lineasConDetallePromises);
+    } catch (error: any) {
+      console.error("[ResultadosCalculoCostosPanel] Error en realizarCalculoDetallado (Promise.all):", error);
+      setErrorCarga(error.message || "Ocurrió un error durante el cálculo detallado.");
+      return null; 
     }
-  }, [state, currentProfileData]);
+  }, [currentProfileData, anoActualGlobal]);
 
-  useEffect(() => {
-    setIsLoading(true);
-    procesarLineasYCalcularDetalles();
-  }, [procesarLineasYCalcularDetalles]);
-
-  const handleProfileChange = (event: SelectChangeEvent<string>) => {
-    const profileId = event.target.value as string;
-    setSelectedProfileId(profileId);
-    const selected = perfilesList.find(p => p._id === profileId);
-    setCurrentProfileData(selected || null);
-  };
-
-  const toggleExpandItem = (key: string) => {
-    setExpandedItems(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
-  };
-
-  const handleVolverAResumen = () => {
-    if (state && state.productosConOpcionalesSeleccionados) {
-        navigate('/resumen-carga', { 
-            state: { 
-                itemsParaCotizar: state.productosConOpcionalesSeleccionados.map(item => ({principal: item.principal, opcionales: item.opcionales})), // Asegurar el formato correcto
-                selectedProfileId: selectedProfileId,
-                nombrePerfil: currentProfileData?.nombre_perfil,
-            }
-        });
-    } else {
-        navigate('/equipos');
-    }
-  };
-  
-  const handleGenerarInformePDF = () => {
-    if (!lineasCalculadas || lineasCalculadas.length === 0) {
-      alert("No hay líneas calculadas para generar un informe.");
+  const handleCalcularYGuardar = async () => {
+    if (!currentProfileData) {
+      setSaveErrorMessage("Por favor, seleccione un perfil de costo primero.");
       return;
     }
-    if (!currentProfileData) {
-        alert("Por favor, seleccione un perfil de costos antes de generar el informe.");
+    const lineasActualesParaCalculo = [...lineasCalculadas]; 
+
+    if (!state?.productosConOpcionalesSeleccionados || state.productosConOpcionalesSeleccionados.length === 0 || lineasActualesParaCalculo.length === 0) {
+        setSaveErrorMessage("No hay productos para calcular y guardar.");
         return;
     }
 
-    const itemsParaCotizarNavegacion = lineasCalculadas.map(lc => ({
-      principal: lc.principal,
-      opcionales: lc.opcionales
-    }));
+    setIsCalculating(true); 
+    setIsSaving(true); 
+    setSaveSuccessMessage(null);
+    setSaveErrorMessage(null);
+    setSavedCalculoId(null);
+    setErrorCarga(null);
 
-    const resultadosCalculadosNavegacion = transformarLineasParaConfiguracion(lineasCalculadas, currentProfileData.nombre_perfil);
+    const nuevasLineasConDetalles = await realizarCalculoDetallado(lineasActualesParaCalculo);
 
+    if (!nuevasLineasConDetalles) {
+      setIsCalculating(false); 
+      setIsSaving(false);
+      setSaveErrorMessage(errorCarga || "Falló la etapa de cálculo. No se guardó.");
+      return;
+    }
+    
+    setLineasCalculadas(nuevasLineasConDetalles);
+
+    const resultadosParaGuardar = transformarLineasParaConfiguracion(nuevasLineasConDetalles, currentProfileData.nombre_perfil);
+    setLatestCalculatedResults(resultadosParaGuardar);
+
+    const cotizacionDetailsMinimos: CotizacionDetails = {
+        clienteNombre: null, 
+        empresaQueCotiza: "Nombre Empresa Ejemplo", // TODO: Obtener de configuración global o datos de usuario
+        emisorNombre: undefined,
+    };
+
+    if (!state.productosConOpcionalesSeleccionados) {
+        setIsSaving(false);
+        setIsCalculating(false);
+        setSaveErrorMessage("Error interno: productosConOpcionalesSeleccionados es nulo.");
+        return;
+    }
+
+    const payload = {
+        itemsParaCotizar: state.productosConOpcionalesSeleccionados, 
+        resultadosCalculados: resultadosParaGuardar,
+        selectedProfileId: currentProfileData._id,
+        nombrePerfil: currentProfileData.nombre_perfil,
+        anoEnCursoGlobal: anoActualGlobal,
+        cotizacionDetails: cotizacionDetailsMinimos,
+    };
+
+    console.log('[ResultadosCalculoCostosPanel] Payload para guardar:', JSON.stringify(payload, null, 2));
+    // For more detailed inspection if stringify hides something:
+    console.log('[ResultadosCalculoCostosPanel] itemsParaCotizar:', state.productosConOpcionalesSeleccionados);
+    console.log('[ResultadosCalculoCostosPanel] resultadosCalculados:', resultadosParaGuardar);
+    console.log('[ResultadosCalculoCostosPanel] cotizacionDetails:', cotizacionDetailsMinimos);
+
+    try {
+      const respuestaGuardado = await guardarCalculoHistorial(payload);
+      const numeroCot = respuestaGuardado.numeroCotizacion;
+      const calculoId = respuestaGuardado._id;
+
+      setSaveSuccessMessage(numeroCot ? `Cálculo guardado con N° de Cotización: ${numeroCot}` : (respuestaGuardado.message || "Cálculo guardado exitosamente."));
+      setSavedCalculoId(calculoId); 
+      setSaveErrorMessage(null);
+    } catch (error: any) {
+      console.error("[ResultadosCalculoCostosPanel] Error al guardar cálculo:", error);
+      setSaveErrorMessage(error.message || "No se pudo guardar el cálculo.");
+      setSaveSuccessMessage(null);
+    } finally {
+      setIsCalculating(false); 
+      setIsSaving(false);
+    }
+  };
+
+  const handleProfileChange = (event: SelectChangeEvent<string>) => {
+    const profileId = event.target.value;
+    const selected = perfilesList.find(p => p._id === profileId);
+    setSelectedProfileId(profileId);
+    setCurrentProfileData(selected || null);
+    setLineasCalculadas(prevLineas => prevLineas.map(linea => ({
+        ...linea,
+        detalleCalculoPrincipal: undefined,
+        detallesCalculoOpcionales: undefined,
+        precioVentaTotalClienteCLPPrincipal: undefined, 
+    })));
+    setSaveSuccessMessage(null);
+    setSaveErrorMessage(null);
+    setErrorCarga(null); 
+    setSavedCalculoId(null);
+    setIsCalculating(false); 
+    setLatestCalculatedResults(null);
+  };
+
+  const toggleExpandItem = (key: string) => {
+    setExpandedItems(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleVolverAResumen = () => {
+    navigate('/configurar-opcionales');
+  };
+
+  const handleGenerarInformePDF = () => {
+    if (!savedCalculoId) {
+        setSaveErrorMessage("Debe calcular y guardar el resultado primero para poder generar el informe.");
+        return;
+    }
+    if (!currentProfileData) {
+        setSaveErrorMessage("No hay un perfil seleccionado."); 
+        return;
+    }
     navigate('/configuracion-panel', {
-      state: {
-        itemsParaCotizar: itemsParaCotizarNavegacion,
-        resultadosCalculados: resultadosCalculadosNavegacion,
-        selectedProfileId: selectedProfileId,
-        nombrePerfil: currentProfileData.nombre_perfil, // currentProfileData no será null aquí debido a la guarda anterior
-        anoEnCursoGlobal: new Date().getFullYear(), 
-      }
+        state: {
+            itemsParaCotizar: state?.productosConOpcionalesSeleccionados || [],
+            resultadosCalculados: latestCalculatedResults,
+            idCalculoHistorial: savedCalculoId, 
+            selectedProfileId: currentProfileData._id,
+            nombrePerfil: currentProfileData.nombre_perfil,
+            anoEnCursoGlobal: anoActualGlobal,
+        }
     });
   };
 
-  if (isLoading && !isProfilesLoading) { 
+  if (isLoading || isProfilesLoading) {
     return (
-        <Container sx={{ py: 4, textAlign: 'center' }}>
-          <Loader2 className="animate-spin" size={48} />
-          <Typography variant="h6" sx={{ mt: 2 }}>Cargando y procesando datos...</Typography>
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            <Paper sx={{ p: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', minHeight: '200px', justifyContent: 'center' }}>
+                <CircularProgress sx={{ mb: 2 }} />
+                <Typography variant="h6">Cargando datos y perfiles...</Typography>
+            </Paper>
         </Container>
-      );
+    );
   }
 
-  if (errorCarga && lineasCalculadas.length === 0) { 
+  if (errorCarga && !lineasCalculadas.length) {
     return (
-        <Container sx={{ py: 4 }}>
-          <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => navigate('/equipos')}>Volver a Equipos</Button>}>
-            {errorCarga}
-          </Alert>
+        <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+            <Alert severity="error">{errorCarga}</Alert>
+            <Button startIcon={<ArrowLeft />} onClick={() => navigate(-1)} sx={{ mt: 2 }}>
+                Volver
+            </Button>
         </Container>
-      );
+    );
   }
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      <Paper elevation={3} sx={{ p: { xs: 2, md: 3 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, md: 0 } }}>
-            <Calculator size={32} style={{ marginRight: '12px', color: 'primary.main' }} />
-            <Typography variant="h5" component="h1">
-          Resultados del Cálculo de Costos
-        </Typography>
-          </Box>
-          <FormControl sx={{ m: 1, minWidth: 250 }} size="small">
-            <InputLabel id="select-profile-label">Perfil de Costos</InputLabel>
-            <Select
-              labelId="select-profile-label"
-              id="select-profile"
-              value={isProfilesLoading ? '' : selectedProfileId}
-              label="Perfil de Costos"
-              onChange={handleProfileChange}
-              disabled={isProfilesLoading || perfilesList.length === 0}
-            >
-              {isProfilesLoading && <MenuItem value="" disabled><CircularProgress size={20} sx={{mr:1}}/>Cargando perfiles...</MenuItem>}
-              {!isProfilesLoading && perfilesList.length === 0 && <MenuItem value="" disabled>No hay perfiles disponibles</MenuItem>}
-              {perfilesList.map((perfil) => (
-                <MenuItem key={perfil._id} value={perfil._id}>
-                  {perfil.nombre_perfil}
-                </MenuItem>
-              ))}
-            </Select>
-             {profileError && <Typography color="error" variant="caption" sx={{mt:1}}>{profileError}</Typography>}
-          </FormControl>
+    <Container maxWidth="xl" sx={{ mt: 2, mb: 4 }}>
+      <Paper elevation={3} sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1">
+            Resultados del Cálculo de Costos
+          </Typography>
         </Box>
 
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          A continuación se muestra el costo base calculado para cada línea de trabajo.
-          {!currentProfileData && !isProfilesLoading && perfilesList.length > 0 && " Seleccione un perfil para ver los cálculos detallados desde el servidor."}
-          {currentProfileData && " Los detalles se obtienen del servidor usando el perfil seleccionado."}
-          {(isLoading || isCalculating) && <CircularProgress size={16} sx={{ml:1}} />}
-          </Typography>
-          
-        {lineasCalculadas.length === 0 && !isLoading && !isCalculating && (
-             <Alert severity="info" sx={{mt:2}}>
-                {!state?.productosConOpcionalesSeleccionados || state.productosConOpcionalesSeleccionados.length === 0 
-                    ? <>No hay productos cargados para calcular. Por favor, <Button size="small" onClick={() => navigate('/equipos')}>vuelva a la selección de equipos</Button>.</>
-                    : !currentProfileData && !isProfilesLoading && perfilesList.length > 0 
-                        ? "Por favor, seleccione un perfil de costos para iniciar el cálculo detallado." 
-                        : "Procesando o no hay datos para mostrar."
-                }
-            </Alert>
+        {profileError && <Alert severity="error" sx={{ mb: 2 }}>Error al cargar perfiles: {profileError}</Alert>}
+
+        <Box sx={{ display: 'flex', mb: 3 }}>
+            <FormControl fullWidth>
+                <InputLabel id="select-perfil-label">Seleccionar Perfil de Costo</InputLabel>
+                <Select
+                    labelId="select-perfil-label"
+                    value={selectedProfileId}
+                    label="Seleccionar Perfil de Costo"
+                    onChange={handleProfileChange}
+                    disabled={isProfilesLoading || perfilesList.length === 0}
+                >
+                    {perfilesList.map((perfil) => (
+                        <MenuItem key={perfil._id} value={perfil._id}>{perfil.nombre_perfil}</MenuItem>
+                    ))}
+                </Select>
+                {isProfilesLoading && <CircularProgress size={20} sx={{ position: 'absolute', top: '50%', right: '35px', marginTop: '-12px' }} />}
+                {perfilesList.length === 0 && !isProfilesLoading && 
+                    <Typography variant="caption" color="textSecondary" sx={{mt:1}}>No hay perfiles disponibles.</Typography>}
+            </FormControl>
+        </Box>
+
+        {isCalculating && (
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', my: 2 }}>
+                <CircularProgress sx={{ mr: 1 }} />
+                <Typography>Realizando cálculos detallados...</Typography>
+            </Box>
         )}
-        
-        {errorCarga && lineasCalculadas.length > 0 && ( 
-            <Alert severity="warning" sx={{mb:2}}>{errorCarga}</Alert>
+        {isSaving && !isCalculating && (
+             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', my: 2 }}>
+                <CircularProgress sx={{ mr: 1 }} />
+                <Typography>Guardando cálculo...</Typography>
+            </Box>
+        )}
+
+        {saveSuccessMessage && <Alert severity="success" sx={{mb:2}}>{saveSuccessMessage}</Alert>}
+        {saveErrorMessage && <Alert severity="error" sx={{mb:2}}>{saveErrorMessage}</Alert>}
+        {errorCarga && <Alert severity="warning" sx={{mb:2}}>{errorCarga}</Alert>}
+
+        {lineasCalculadas.length === 0 && !isLoading && !errorCarga && (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            No hay productos seleccionados para calcular o no se ha podido cargar la configuración inicial.
+          </Alert>
         )}
 
         {lineasCalculadas.map((linea, index) => {
-          const principalKey = linea.principal.codigo_producto || `principal-${index}`;
-          const isItemCalculating = isCalculating && expandedItems[principalKey];
+          const key = linea.principal.codigo_producto || `item-${index}`;
+          const isExpanded = expandedItems[key] || false;
+          const tieneDetalles = !!linea.detalleCalculoPrincipal && !linea.detalleCalculoPrincipal.error;
 
           return (
-            <Paper key={principalKey} elevation={1} sx={{ mb: 2.5, p: 2, border: '1px solid #e0e0e0', opacity: isItemCalculating ? 0.7 : 1 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => toggleExpandItem(principalKey)}>
-                <Typography variant="h6" component="h2" sx={{ fontWeight: 'medium' }}>
-                  {linea.principal.nombre_del_producto || 'Producto Principal Desconocido'}
-                </Typography>
-                <Box sx={{display: 'flex', alignItems: 'center'}}>
-                    {isItemCalculating && <CircularProgress size={20} sx={{mr:1}}/>}
-                    {expandedItems[principalKey] ? <ChevronUp /> : <ChevronDown />}
-                </Box>
-              </Box>
-              <Typography variant="caption" color="textSecondary" gutterBottom>
-                Código Principal: {linea.principal.codigo_producto || 'N/A'}
-              </Typography>
-
-              <Box sx={{ my: 1.5, p: 1.5, backgroundColor: '#e6fffa', borderRadius: '4px' }}> 
-                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
-                  <DollarSign size={20} style={{ marginRight: '8px', color: '#00796b' }} />
-                  Precio Venta Total (CLP):
-                  <span style={{ marginLeft: 'auto', fontSize:'1.1em' }}>
-                    {linea.precioVentaTotalClienteCLPPrincipal !== undefined 
-                      ? formatCLP(linea.precioVentaTotalClienteCLPPrincipal) 
-                      : (isCalculating && !linea.detalleCalculoPrincipal?.error ? 'Calculando...' : formatCLP(0)) 
+            <Accordion key={key} expanded={isExpanded} onChange={() => toggleExpandItem(key)} sx={{ mb: 1.5 }}>
+              <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls={`panel${index}-content`} id={`panel${index}-header`}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
+                  <Typography variant="h6" sx={{ flexGrow: 1 }}>
+                    {linea.principal.nombre_del_producto || 'Producto Principal'}
+                    {linea.opcionales.length > 0 && 
+                        <Chip label={`${linea.opcionales.length} opcional(es)`} size="small" sx={{ ml: 1, backgroundColor: '#e0e0e0'}} />
                     }
-                  </span>
-                </Typography>
-              </Box>
+                  </Typography>
+                  {tieneDetalles && linea.detalleCalculoPrincipal?.calculados?.precios_cliente?.precioVentaTotalClienteCLP !== undefined ? (
+                     <Typography variant="h6" color="secondary" sx={{ mr: 1, fontWeight: 'bold' }}>
+                        {formatCLP(linea.detalleCalculoPrincipal.calculados.precios_cliente.precioVentaTotalClienteCLP)}
+                     </Typography>
+                  ) : currentProfileData && !isCalculating ? (
+                    <Chip icon={<AlertTriangle size={16}/>} label="Requiere Cálculo" color="warning" size="small" sx={{mr:1}}/>
+                  ) : !currentProfileData ? (
+                    <Chip icon={<CloudOff size={16}/>} label="Seleccione Perfil" color="info" size="small" sx={{mr:1}}/>
+                  ) : null}
+                </Box>
+              </AccordionSummary>
+              <AccordionDetails sx={{ borderTop: '1px solid rgba(0, 0, 0, .125)', p: {xs: 1, sm: 2} }}>
+                <Typography variant="subtitle1" gutterBottom sx={{mt:1, fontWeight: 'medium' }}>Producto Principal: {linea.principal.nombre_del_producto}</Typography>
+                {linea.detalleCalculoPrincipal ? (
+                    <RenderResultDetails detalle={linea.detalleCalculoPrincipal} profile={currentProfileData} />
+                ) : (
+                    <Typography sx={{my:1}}>{currentProfileData ? (isCalculating ? 'Calculando...' : 'Presione "Calcular y Guardar" para ver detalles.') : 'Seleccione un perfil para habilitar el cálculo.'}</Typography>
+                )}
 
-              {expandedItems[principalKey] && (
-                <Box sx={{ mt: 2, pl: 1 }}>
-                  {isCalculating && !linea.detalleCalculoPrincipal && <Box sx={{display: 'flex', justifyContent: 'center', my:2}}><CircularProgress /><Typography sx={{ml:1}}>Calculando detalles del principal...</Typography></Box>}
-                  {linea.detalleCalculoPrincipal && (
-                    <RenderResultDetails detalle={linea.detalleCalculoPrincipal ?? null} profile={currentProfileData} />
-                  )}
-
-                  {linea.detallesCalculoOpcionales && linea.detallesCalculoOpcionales.length > 0 && (
-                    <Box sx={{mt: 2, ml: 2, borderLeft: '2px solid #eee', pl:2}}>
-                        <Typography variant="subtitle1" gutterBottom sx={{fontWeight:'bold', color: '#555'}} >Cálculo Detallado Opcionales:</Typography>
-                        {linea.detallesCalculoOpcionales.map((detalleOpcional, idx) => (
-                            <Box key={idx} sx={{mb:2}}>
-                                <Typography variant="subtitle2" sx={{fontWeight:'medium', color: '#666'}}>
-                                    Opcional: {linea.opcionales[idx]?.nombre_del_producto || `Opcional ${idx+1}`}
-                                </Typography>
-                                <RenderResultDetails detalle={detalleOpcional ?? null} profile={currentProfileData} />
+                {linea.opcionales.length > 0 && (
+                    <Box sx={{ mt: 3 }}>
+                        <Typography variant="subtitle1" gutterBottom sx={{fontWeight: 'medium' }}>Productos Opcionales:</Typography>
+                        {linea.opcionales.map((opcional, opcIndex) => (
+                            <Box key={opcional.codigo_producto || `opc-${opcIndex}`} sx={{ mb: 2, pl: 2, borderLeft: '3px solid #eee' }}>
+                                <Typography variant="subtitle2" gutterBottom sx={{color: 'text.secondary'}}>{opcional.nombre_del_producto}</Typography>
+                                {linea.detallesCalculoOpcionales && linea.detallesCalculoOpcionales[opcIndex] ? (
+                                    <RenderResultDetails detalle={linea.detallesCalculoOpcionales[opcIndex]} profile={currentProfileData} />
+                                ) : (
+                                    <Typography sx={{my:1}}>{currentProfileData ? (isCalculating ? 'Calculando...' : 'Presione "Calcular y Guardar" para ver detalles.') : 'Seleccione un perfil para habilitar el cálculo.'}</Typography>
+                                )}
                             </Box>
                         ))}
                     </Box>
-                  )}
-                </Box>
-              )}
-            </Paper>
-        );
-      })}
+                )}
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
 
-        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Button 
-            variant="outlined" 
-            startIcon={<ArrowLeft />} 
+        <Box display="flex" justifyContent="space-between" alignItems="center" sx={{ mt: 3, mb:1, gap: 2 }}>
+          <Button
+            variant="outlined"
+            size="large"
+            startIcon={<ArrowLeft />}
             onClick={handleVolverAResumen}
-            disabled={isCalculating}
           >
-            Volver a Resumen
-        </Button>
-          <Button 
-            variant="contained" 
-            color="primary" 
-            startIcon={<FileText />} 
-            onClick={handleGenerarInformePDF} 
-            disabled={isCalculating || lineasCalculadas.length === 0 || !currentProfileData || lineasCalculadas.some(l => !l.detalleCalculoPrincipal || l.detalleCalculoPrincipal.error)}
+            Volver a Config. Opcionales
+          </Button>
+          <Button
+            variant="contained"
+            color="primary"
+            size="large"
+            startIcon={<Calculator />}
+            onClick={handleCalcularYGuardar}
+            disabled={!currentProfileData || (lineasCalculadas && lineasCalculadas.length === 0) || isCalculating || isSaving}
+            sx={{ minWidth: '220px' }}
           >
-            Generar Informe PDF 
-        </Button>
+            {isCalculating && !isSaving ? "Calculando..." : (isSaving ? "Guardando..." : "Calcular y Guardar")}
+          </Button>
+          <Button
+            variant="contained"
+            color="success"
+            size="large"
+            startIcon={<FileText />}
+            onClick={handleGenerarInformePDF}
+            disabled={!savedCalculoId || isCalculating || isSaving}
+          >
+            Configurar Cotización y Datos Adicionales (PDF)
+          </Button>
         </Box>
+
       </Paper>
     </Container>
   );
-} 
+}

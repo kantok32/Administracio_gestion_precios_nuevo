@@ -149,8 +149,8 @@ const guardarYExportarCalculos = asyncHandler(async (req, res) => {
             }
 
             res.header('Content-Type', 'application/pdf');
-            // Usar el número secuencial para el nombre del archivo
-            res.header('Content-Disposition', `attachment; filename="Configuracion_${numeroSecuencialConfig}.pdf"`);
+            // Usar el número secuencial para el nombre del archivo y mostrar en línea
+            res.header('Content-Disposition', `inline; filename="Configuracion_${numeroSecuencialConfig}.pdf"`);
             res.send(buffer);
         });
 
@@ -361,6 +361,7 @@ const generarHtmlParaPdf = (datos) => {
                 padding: 15px;
                 background-color: #f9f9f9;
                 border-radius: 4px;
+                page-break-inside: avoid; /* Evitar corte interno */
             }
             .comments-section h3 {
                 font-size: 14px;
@@ -415,6 +416,7 @@ const generarHtmlParaPdf = (datos) => {
             .totals-section {
                 margin-bottom: 30px;
                 overflow: auto; /* Clearfix */
+                page-break-inside: avoid; /* Evitar corte interno */
             }
             .totals-table {
                 float: right;
@@ -444,6 +446,7 @@ const generarHtmlParaPdf = (datos) => {
             
             .conditions-section {
                 margin-bottom: 30px;
+                page-break-inside: avoid; /* Evitar corte interno */
             }
             .conditions-section h2 {
                 font-size: 16px;
@@ -473,6 +476,7 @@ const generarHtmlParaPdf = (datos) => {
                 text-align: center;
                 font-size: 11px;
                 color: #777;
+                page-break-inside: avoid; /* Evitar corte interno */
             }
             .footer-contact p {
                 margin: 3px 0;

@@ -161,7 +161,7 @@ export default function ConfiguracionPanel() {
     <Box sx={{ maxWidth: '1000px', margin: 'auto', padding: '20px' }}>
       <Paper elevation={3} sx={mainPaperStyle}>
         <Typography variant="h4" gutterBottom align="center">
-          Configurar Datos de Cotización
+          Configurar Datos
         </Typography>
 
         {/* SECCIÓN DATOS DEL CLIENTE */}

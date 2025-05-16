@@ -21,8 +21,93 @@
     "es_opcional": false,
     "peso_kg": 50,
     "producto": "Chipeadora PTO",
-    "updatedAt": "2025-05-15T20:30:11.503Z",
+    "updatedAt": "2025-05-16T20:44:16.941Z",
     "fecha_cotizacion": "2023",
+    "especificaciones_tecnicas": {
+      "DIMENSIONES": {
+        "PESO": "1950 [kg]",
+        "ANCHO": "1.6 [m]",
+        "ALTO CON CAÑÓN DE DESCARGA": "2.9 [m]"
+      },
+      "ALTO SIN CAÑÓN DE DESCARGA": {
+        "LARGO": "2.3 [m]"
+      },
+      "LARGO (TOLVA ABIERTA)": {
+        "ALTO DESDE EL SUELO A TOLVA": "0.65 [m]",
+        "ROTACIÓN DE LA MESA DE CHIPEADORA": "-"
+      },
+      "SISTEMA DE POTENCIA": {
+        "MOTOR": "Sin motor. Requiere toma de fuerza (PTO)",
+        "TIPO DE COMBUSTIBLE": "-",
+        "ESTANQUE DE COMBUSTIBLE": "-",
+        "ESTANQUE HIDRAULICO": "64 L",
+        "POTENCIA DEL MOTOR": "Requiere 82 [HP]"
+      },
+      "REQUISITO MÁXIMO DE CAUDAL HIDRÁULICO": {
+        "SISTEMA DE ENFRIAMIENTO": "-",
+        "CONTROL DE OPERACIÓN": "?",
+        "NIVEL DE RUIDO": "114 dB"
+      },
+      "SISTEMA DE ALIMENTACIÓN": {
+        "PRODUCCIÓN": "35 [m³/hr]",
+        "TIPO DE ALIMENTACIÓN": "Alimentación Manual",
+        "TAMAÑO DE TOLVA DE ENTRADA (ANCHO X ALTO)": "1370 x 850 [mm]",
+        "TAMAÑO DE GARGANTA DE ALIMENTACIÓN": "410 x 300 [mm]",
+        "DIAMETRO DE ENTRADA": "300 [mm]",
+        "LARGO CINTA DE ALIMENTACION": "-",
+        "ENTRADA  DE TOLVA PLEGABLE": "Complemento de la tolva que permite ampliar la superficie receptora de material y que se puede plegar para el transporte, cubriendo gran parte de la tolva de entrada.",
+        "RODILLOS DE ALIMENTACIÓN": "Doble Rodillo de Alimentación",
+        "DIMENSIONES DE RODILLOS DE ALIMENTACIÓN": "Diámetro Rodillo Superior: 120 mm Diámetro Rodillo Inferior: 120 mm",
+        "MATERIALIDAD DE RODILLOS DE ALIMENTACIÓN": "Construidos con material sólido de alta calidad.                                                \r\nPosible de ser reafilados y soldados en caso de desgaste.",
+        "ACCIONAMIENTO DE RODILLOS DE ALIMENTACIÓN": "Accionamiento hidráulico directo de los rodillos de alimentación mediante una transmisión de engranajes con igual velocidad de rotación de los cilindros de alimentación superior e inferior. Bloqueo simultáneo de rodillos para un máximo agarre.",
+        "OPERACIÓN DE RODILLOS DE ALIMENTACIÓN": "Rodillo de alimentación superior suspendido pendularmente. Se orienta de forma radial, lo cual significa que conduce el material hacia el radio exterior del disco de corte en donde la velocidad periférica es más alta, consiguiendo mayor potencia de corte",
+        "SISTEMA DE ALIMENTACIÓN INTELIGENTE (AUTOFEED)": "?"
+      },
+      "SISTEMA DE CORTE": {
+        "ELEMENTO DE CORTE": "Disco",
+        "PESO DE ELEMENTO DE CORTE": "270 [kg]",
+        "NÚMERO DE CUCHILLOS": "2 Cuchillos reafilables de doble ángulo."
+      },
+      "DIMENSIÓN TAMBOR": {
+        "DIMENSIÓN DISCO DE CORTE": "1060 [mm] de diámetro x 40 [mm] de espesor",
+        "RPM DE OPERACIÓN DEL DISCO DE CORTE": "1000 RPM",
+        "LONGITUD DE CORTE DE CHIP": "Ajustable entre 5-20 [mm]",
+        "SISTEMA DE REGULACIÓN DE LARGO DE CHIP": "Longitud ajustable a través de la modificación hidráulica de la velocidad de rotación de los rodillos.",
+        "ESTABILIDAD DE OPERACIÓN": "El Disco de Corte integra aspas ubicadas desde el canto exterior del disco hasta el eje principal, los que garantizan la absoluta estabilidad en todo el diámetro del disco de corte.",
+        "IMPULSIÓN DE CHIPS": "Mediante el gran tamaño de las aspas en conjunto con una carcasa de forma cónica, se logra un efecto soplador con gran capacidad de descarga.                      \r\n\r\nEl disco de corte está abierto hacia el lado exterior en el lugar de ubicación del cuchillo de corte. Por medio de esto, todo el largo del cuchillo de corte es utilizado, así todo el material astillado es expulsado en forma óptima y sin obstrucciones",
+        "CAÑÓN DE DESCARGA": "Dirigible en 360°, manualmente giratoria, con deflector abatible que direcciona la descarga",
+        "AUMENTO DE INERCIA DE DISCO DE CORTE": "Por medio de masas especiales puestos en el disco de corte se logra una alta inercia con su correspondiente potencia.",
+        "TIPO DE CUCHILLOS": "Cuchillos de acero especial para trabajo forestal, con doble ángulo de filo para un corte en dos etapas. Primero separa el material y posteriormente produce un corte limpio y controlado.\r\n\r\nPor medio del doble ángulo de filo se logra reducir la emisión de ruido y la potencia requerida para el corte de material.",
+        "AJUSTE DE CUCHILLOS": "Los cuchillos son ubicados con una inclinación de 3° sobre el disco de corte, sufriendo un menor desgaste y requiriendo un menor esfuerzo para el desarrollo de su trabajo.                                                            \r\n\r\nLos cuchillos de corte son asegurados a través de pernos Allen, lo que además asegura un rápido montaje y desmontaje.",
+        "YUNQUE": "Dos yunques, horizontal y vertical, con dos lados utilizables",
+        "DIMENSIONES DE LA CRIBA": "-"
+      },
+      "CARACTERÍSTICAS CHASIS Y ACCESORIOS": {
+        "METODO DE DESPLAZAMIENTO": "Radial",
+        "CONSTRUCCIÓN": "Chasis completamente galvanizado",
+        "EJE": "Eje simple",
+        "CANTIDAD DE RUEDAS": "2"
+      },
+      "RUEDA DE APOYO DELANTERA": {
+        "ENGANCHE": "Enganche para remolque tipo anillo o de bola, ajustable en altura",
+        "BARRA DE REMOLQUE": "Ajustable en altura, manteniendo el enganche a 90° en todo momento",
+        "SISTEMA DE ORUGA": "-",
+        "SISTEMA DE COMPENSACION DE NIVEL": "-"
+      },
+      "VELOCIDAD MÁXIMA": {
+        "FUNCIONAMIENTO ELÉCTRICO": "Sistema 12 [Volt]"
+      },
+      "PROTECCION DE FOCOS": {
+        "COLOR": "Naranjo (RAL 2011)",
+        "FRENO": "-"
+      },
+      "EXIGENCIAS Y SISTEMA DE SEGURIDAD": {
+        "EXIGENCIAS NORMATIVAS": "Cumple exigencias de la CE",
+        "BARRA DE COMANDO": "Barra direccional de alimentación, que acciona avance/neutro/reversa.",
+        "INSTRUCCIONES DE SEGURIDAD EN MÁQUINA": "Cumple con las Exigencias normativas para la circulación vial en calles nacionales.",
+        "NORMATIVA DE CIRCULACIÓN VIAL": "Mediante calcomanías distribuidas sobre la máquina."
+      }
+    },
     "codigo_producto": "61134",
     "nombre_del_producto": "Chipeadora PTO A141XL - Chasis 25km/h - Abertura 410 x 300mm",
     "Modelo": "A141XL - Chasis 25km/h",
