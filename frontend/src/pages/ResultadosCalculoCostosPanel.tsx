@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Loader2, AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { Button, Typography } from '@mui/material';
 
 // --- Tipos (deberían idealmente importarse de un archivo types.ts común si no lo están ya) ---
 interface Producto {
@@ -150,10 +151,10 @@ const sectionLabels: Record<string, Record<string, string>> = {
 
 const RenderResultDetails: React.FC<{ result: CalculationResult }> = ({ result }) => {
     if (result.error) {
-        return <p style={{ color: 'red', fontWeight: 'bold' }}>Error en cálculo: {result.error}</p>;
+        return <Typography style={{ color: 'red', fontWeight: 'bold' }}>Error en cálculo: {result.error}</Typography>;
     }
     if (!result.calculados || !result.inputs) {
-        return <p>Datos de cálculo incompletos.</p>;
+        return <Typography>Datos de cálculo incompletos.</Typography>;
     }
 
     const { calculados, inputs } = result;
@@ -163,7 +164,7 @@ const RenderResultDetails: React.FC<{ result: CalculationResult }> = ({ result }
         if (!data || Object.keys(data).length === 0) return null;
         return (
             <div style={{ marginBottom: '15px' }}>
-                <h4 style={{ fontSize: '1em', fontWeight: '600', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '10px' }}>{title}</h4>
+                <Typography variant="h6" component="h4" style={{ fontSize: '1em', fontWeight: '600', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '10px' }}>{title}</Typography>
                 {Object.entries(data).map(([key, value]) => {
                     const label = labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                     let formattedValue = '--';
@@ -189,8 +190,8 @@ const RenderResultDetails: React.FC<{ result: CalculationResult }> = ({ result }
                     }
                     return (
                         <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9em', marginBottom: '3px' }}>
-                            <span>{label}:</span>
-                            <span style={{ fontWeight: '500' }}>{formattedValue}</span>
+                            <Typography component="span">{label}:</Typography>
+                            <Typography component="span" style={{ fontWeight: '500' }}>{formattedValue}</Typography>
                         </div>
                     );
                 })}
@@ -200,18 +201,12 @@ const RenderResultDetails: React.FC<{ result: CalculationResult }> = ({ result }
 
     return (
         <div style={{ backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '6px', border: '1px solid #e0e0e0' }}>
-            {/* {renderSection("Valores Input Usados en Cálculo (desde Perfil y Request)", inputs, inputLabels)} */}
-            {/* Separador visual o un título diferente si los 'apiValues' son distintos de 'inputs' 
-            {inputs.tipoCambioEurUsdActual_API && renderSection("Valores API Usados (Obtenidos por Backend)", 
-                { tipo_cambio_eur_usd_actual: inputs.tipoCambioEurUsdActual_API, tipo_cambio_usd_clp_actual: inputs.tipoCambioUsdClpActual_API }, 
-                apiValuesLabels)}
-            */}
-            {renderSection("Costo de Producto", calculados.costo_producto, sectionLabels.costo_producto)}
-            {renderSection("Logística y Seguro (EXW a Chile)", calculados.logistica_seguro, sectionLabels.logistica_seguro)}
-            {renderSection("Costos de Importación", calculados.importacion, sectionLabels.importacion)}
-            {renderSection("Costo puesto en Bodega (Landed Cost)", calculados.landed_cost, sectionLabels.landed_cost)}
-            {renderSection("Conversión a CLP y Margen", calculados.conversion_margen, sectionLabels.conversion_margen)}
-            {renderSection("Precios para Cliente", calculados.precios_cliente, sectionLabels.precios_cliente)}
+            {renderSection("Costo de Producto", calculados.costo_producto, sectionLabels.costo_producto || {})}
+            {renderSection("Logística y Seguro (EXW a Chile)", calculados.logistica_seguro, sectionLabels.logistica_seguro || {})}
+            {renderSection("Costos de Importación", calculados.importacion, sectionLabels.importacion || {})}
+            {renderSection("Costo puesto en Bodega (Landed Cost)", calculados.landed_cost, sectionLabels.landed_cost || {})}
+            {renderSection("Conversión a CLP y Margen", calculados.conversion_margen, sectionLabels.conversion_margen || {})}
+            {renderSection("Precios para Cliente", calculados.precios_cliente, sectionLabels.precios_cliente || {})}
         </div>
     );
 };
@@ -221,6 +216,7 @@ export default function ResultadosCalculoCostosPanel() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as LocationState | null;
+  const [isLoading, setIsLoading] = useState(false); // Estado para feedback visual
 
   // Estado para controlar qué items PRINCIPALES están expandidos
   const [expandedPrincipales, setExpandedPrincipales] = useState<Record<string, boolean>>({});
@@ -316,14 +312,104 @@ export default function ResultadosCalculoCostosPanel() {
   const itemHeaderStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '10px 0' };
   const itemTitleStyle: React.CSSProperties = { fontSize: '1.2em', fontWeight: '600', color: '#343a40' };
 
-  const handleConfirmarYContinuar = () => {
-    // Aquí se debería manejar la lógica para avanzar al siguiente paso del stepper original.
-    // Esto podría implicar: navegar a la siguiente ruta del stepper, actualizar un estado global, etc.
-    // Por ahora, solo un log y navegar a una ruta placeholder.
-    console.log("Confirmado. Datos para continuar:", { itemsParaCotizar, resultadosCalculados, selectedProfileId, nombrePerfil, anoEnCursoGlobal });
-    // Ejemplo: Suponiendo que el siguiente paso es DetallesEnvioPanel y su ruta es /detalles-envio
-    // navigate('/detalles-envio', { state: { /* pasar datos relevantes si es necesario */ } });
-    alert("Funcionalidad 'Confirmar y Continuar' pendiente de implementación para la siguiente ruta.");
+  const handleConfirmarYContinuar = async () => {
+    if (!state) {
+      console.error("Error: No hay estado disponible para procesar.");
+      alert("Error: No hay datos para procesar. Por favor, vuelve a intentarlo.");
+      return;
+    }
+
+    const {
+      itemsParaCotizar,
+      resultadosCalculados,
+      selectedProfileId,
+      nombrePerfil,
+      anoEnCursoGlobal
+    } = state;
+
+    if (!itemsParaCotizar || Object.keys(resultadosCalculados).length === 0) {
+        console.error("Error: itemsParaCotizar o resultadosCalculados están vacíos.");
+        alert("Error: No hay items o resultados calculados para procesar.");
+        return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const backendUrl = '/api/calculos-historial/guardar-y-exportar';
+      
+      const response = await fetch(backendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          // 'Authorization': `Bearer ${tuToken}`,
+        },
+        body: JSON.stringify({
+          itemsParaCotizar,
+          resultadosCalculados,
+          selectedProfileId,
+          nombrePerfil,
+          anoEnCursoGlobal
+        })
+      });
+
+      if (!response.ok) {
+        let errorMessage = `Error del servidor: ${response.status}`;
+        try {
+            const errorData = await response.json(); // Intenta obtener mensaje de error JSON del backend
+            errorMessage = errorData.message || errorData.error || errorMessage;
+        } catch (e) {
+            errorMessage = (await response.text()) || response.statusText || errorMessage; // Fallback a texto plano si no es JSON
+        }
+        console.error('Error al guardar y exportar:', errorMessage);
+        alert(`Error al procesar la solicitud: ${errorMessage}`);
+        setIsLoading(false);
+        return;
+      }
+
+      // Manejo de la respuesta PDF
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/pdf')) {
+        const blob = await response.blob();
+        const filenameHeader = response.headers.get('Content-Disposition');
+        let filename = `CalculoCostos_${nombrePerfil || 'General'}_${new Date().toISOString().split('T')[0]}.pdf`; // Default
+        
+        if (filenameHeader) {
+          const parts = filenameHeader.split('filename=');
+          if (parts.length > 1) {
+            filename = parts[1].split(';')[0].replace(/["\']/g, ''); // Limpiar comillas y asegurar que es un nombre válido
+            if (!filename.toLowerCase().endsWith('.pdf')) {
+                filename += '.pdf'; // Asegurar extensión .pdf
+            }
+          }
+        }
+
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+
+        alert('¡Éxito! Los cálculos han sido guardados y el archivo PDF se ha descargado.');
+      } else {
+        // Si la respuesta es OK pero no es PDF (ej. solo mensaje de confirmación JSON)
+        try {
+            const jsonData = await response.json();
+            alert(jsonData.message || 'Operación completada, pero no se recibió un archivo PDF.');
+        } catch (e) {
+            alert('Operación completada, pero la respuesta no fue un archivo PDF ni JSON válido.');
+        }
+      }
+
+    } catch (error: any) {
+      console.error('Error en la función handleConfirmarYContinuar:', error);
+      alert(`Ocurrió un error inesperado: ${error.message || 'Revisa la consola para más detalles.'}`);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -380,7 +466,7 @@ export default function ResultadosCalculoCostosPanel() {
       {/* --- FIN: Sección de Resumen de Totales por Tipo --- */}
 
       {itemsParaCotizar.length === 0 && (
-        <p>No se procesaron items para cotizar.</p>
+        <Typography>No se procesaron items para cotizar.</Typography>
       )}
 
       {itemsParaCotizar.map((item, index) => {
@@ -394,7 +480,7 @@ export default function ResultadosCalculoCostosPanel() {
               style={itemHeaderStyle} 
               onClick={() => toggleExpandPrincipal(principalProductKey)}
             >
-              <h3 style={itemTitleStyle}>{item.principal.nombre_del_producto || 'Producto Principal Sin Nombre'}</h3>
+              <Typography variant="h6" component="h3" style={itemTitleStyle}>{item.principal.nombre_del_producto || 'Producto Principal Sin Nombre'}</Typography>
               {isPrincipalExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
             </div>
 
@@ -403,12 +489,12 @@ export default function ResultadosCalculoCostosPanel() {
                 {resultadoPrincipal ? (
                   <RenderResultDetails result={resultadoPrincipal} />
                 ) : (
-                  <p style={{ color: 'orange' }}>No se encontraron resultados para este producto principal.</p>
+                  <Typography style={{ color: 'orange' }}>No se encontraron resultados para este producto principal.</Typography>
                 )}
 
                 {item.opcionales && item.opcionales.length > 0 && (
                   <div style={{ marginTop: '20px', paddingLeft: '10px' }}> {/* Ligero indentado para opcionales */}
-                    <h4 style={{ fontSize: '1.1em', fontWeight: '600', color: '#495057', marginBottom: '10px' }}>Opcionales:</h4>
+                    <Typography variant="subtitle1" component="h4" style={{ fontSize: '1.1em', fontWeight: '600', color: '#495057', marginBottom: '10px' }}>Opcionales:</Typography>
                     {item.opcionales.map((opcional, opcionalIndex) => {
                       const opcionalProductKey = opcional.codigo_producto || `opcional-${opcionalIndex}`;
                       const opcionalUniqueKey = `${principalProductKey}_${opcionalProductKey}`;
@@ -421,7 +507,7 @@ export default function ResultadosCalculoCostosPanel() {
                             style={{...itemHeaderStyle, padding: '5px 0'}} // Estilo más compacto para opcionales
                             onClick={() => toggleExpandOpcional(opcionalUniqueKey)}
                           >
-                            <h5 style={{ fontSize: '1em', fontWeight: '500', color: '#555' }}>{opcional.nombre_del_producto || 'Opcional Sin Nombre'}</h5>
+                            <Typography variant="subtitle2" component="h5" style={{ fontSize: '1em', fontWeight: '500', color: '#555' }}>{opcional.nombre_del_producto || 'Opcional Sin Nombre'}</Typography>
                             {isOpcionalExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
                           </div>
                           {isOpcionalExpanded && (
@@ -429,7 +515,7 @@ export default function ResultadosCalculoCostosPanel() {
                                 {resultadoOpcional ? (
                                 <RenderResultDetails result={resultadoOpcional} />
                                 ) : (
-                                <p style={{ color: 'orange' }}>No se encontraron resultados para este opcional.</p>
+                                <Typography style={{ color: 'orange' }}>No se encontraron resultados para este opcional.</Typography>
                                 )}
                             </div>
                           )}
@@ -448,15 +534,17 @@ export default function ResultadosCalculoCostosPanel() {
         <Button variant="outlined" startIcon={<ArrowLeft />} onClick={() => navigate(-1)} style={secondaryButtonStyle}>
           Volver y Modificar
         </Button>
-        <Button variant="contained" endIcon={<ArrowRight />} onClick={handleConfirmarYContinuar} style={primaryButtonStyle}>
-          Confirmar y Continuar al Siguiente Paso
+        <Button 
+          variant="contained" 
+          color="primary" 
+          onClick={handleConfirmarYContinuar} 
+          disabled={isLoading}
+          style={{ marginTop: '20px', padding: '10px 20px' }}
+          startIcon={isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+        >
+          Confirmar y Generar PDF
         </Button>
       </div>
     </div>
   );
-}
-
-// Temporalmente, para evitar errores de importación si Typography y Button no están definidos globalmente:
-const Typography = ({ variant, component, children, ...props }: any) => React.createElement(component || variantMapping[variant] || 'p', props, children);
-const variantMapping: Record<string, string> = { h1:'h1', h2:'h2', h3:'h3', h4:'h4', h5:'h5', h6:'h6', subtitle1:'h6', subtitle2:'h6', body1:'p', body2:'p'};
-const Button = ({variant, children, ...props}: any) => React.createElement('button', props, children); 
+} 

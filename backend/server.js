@@ -22,6 +22,7 @@ const { fetchCurrencyValuesController, fetchProducts } = require('./controllers/
 const { port } = require('./config/env');
 // const PricingOverride = require('./models/PricingOverride'); // REMOVE THIS LINE
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
+const calculoHistorialRoutes = require('./routes/calculoHistorialRoutes');
 
 dotenv.config();
 
@@ -61,6 +62,7 @@ const initializeServer = async () => {
     // app.use('/api', costosRoutes); // REMOVE THIS LINE
     // Registrar las nuevas rutas de Langchain
     app.use('/api/langchain', langchainRoutes);
+    app.use('/api/calculos-historial', calculoHistorialRoutes);
     // app.use('/api/webhook', webhookRoutes); // <-- Comentar ya que no existe
     
     // Inicializar caché
