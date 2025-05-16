@@ -13,6 +13,8 @@ import CargaEquiposPanel from './pages/CargaEquiposPanel'
 import DashboardPanel from './pages/DashboardPanel'
 import ResultadosCalculoCostosPanel from './pages/ResultadosCalculoCostosPanel'
 import ConfiguracionPanel from './pages/ConfiguracionPanel'
+import ConfigurarOpcionalesPanel from './pages/ConfigurarOpcionalesPanel'
+import ResumenCargaPanel from './pages/ResumenCargaPanel'
 // import DetallesEnvioPanel from './pages/DetallesEnvioPanel'; // Comentado si no se usa directamente aquí
 
 // Forzar modo claro
@@ -63,6 +65,8 @@ const AnimatedRoutes = () => {
           {/* <Route path="detalles-envio" element={<AnimatedPage><DetallesEnvioPanel /></AnimatedPage>} /> */}
           <Route path="resultados-calculo-costos" element={<AnimatedPage><ResultadosCalculoCostosPanel /></AnimatedPage>} />
           <Route path="configuracion-panel" element={<AnimatedPage><ConfiguracionPanel /></AnimatedPage>} />
+          <Route path="configurar-opcionales" element={<AnimatedPage><ConfigurarOpcionalesPanel /></AnimatedPage>} />
+          <Route path="resumen-carga" element={<AnimatedPage><ResumenCargaPanel /></AnimatedPage>} />
         </Route>
       </Routes>
     </AnimatePresence>
@@ -119,3 +123,13 @@ try {
   `;
   console.log('Mensaje de error de fallback insertado en el DOM.');
 }
+
+// --- Placeholder para ResumenCargaPanel ---
+// const ResumenCargaPlaceholder = () => (
+//   <div style={{ padding: '20px', textAlign: 'center' }}>
+//     <h1>Resumen y Configuración de Carga</h1>
+//     <p>Esta página está en construcción.</p>
+//     <p>Aquí se mostrará el resumen de los equipos y opcionales seleccionados antes de proceder al cálculo final o cotización.</p>
+//   </div>
+// );
+// --- Fin Placeholder ---

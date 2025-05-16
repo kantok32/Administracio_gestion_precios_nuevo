@@ -212,7 +212,7 @@ export default function ConfiguracionPanel() {
 
         {/* Botones de Acción */}
         <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between' }}>
-          <Button variant="outlined" startIcon={<ArrowLeft />} onClick={() => navigate('/resultados-calculo-costos')}>
+          <Button variant="outlined" startIcon={<ArrowLeft />} onClick={() => navigate('/resultados-calculo-costos', { state: calculosData })}>
             Volver a Resultados
           </Button>
           <Button 

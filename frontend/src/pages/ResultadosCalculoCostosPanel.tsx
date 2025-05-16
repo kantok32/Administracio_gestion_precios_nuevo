@@ -1,22 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
-import { Button, Typography } from '@mui/material';
+import { Loader2, AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Calculator, ListTree, DollarSign, CloudOff } from 'lucide-react';
+import {
+  Button, Typography, Paper, Box, Container, Alert,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, List, ListItem, ListItemText,
+  Select, MenuItem, FormControl, InputLabel, CircularProgress, SelectChangeEvent,
+  Accordion, AccordionSummary, AccordionDetails, Grid
+} from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { getPerfiles } from '../services/perfilService';
+import { CostoPerfilData } from '../types';
+import { Producto } from '../types/product';
 
 // --- Tipos (deberían idealmente importarse de un archivo types.ts común si no lo están ya) ---
-interface Producto {
-  codigo_producto?: string;
-  nombre_del_producto?: string;
-  Descripcion?: string;
-  Modelo?: string;
-  categoria?: string;
-  pf_eur?: string | number;
-  datos_contables?: {
-    costo_fabrica?: number;
-    divisa_costo?: string;
-    fecha_cotizacion?: string;
-    [key: string]: any;
-  };
+interface DatosContables {
+  costo_fabrica?: number;
+  divisa_costo?: string;
+  fecha_cotizacion?: string;
+  [key: string]: any;
 }
 
 interface ProductoConOpcionales {
@@ -38,17 +39,29 @@ interface CalculationResult {
     inputs?: any; 
     calculados?: GroupedPruebaResults;
     error?: string;
+    profileName?: string;
 }
 
 interface LocationState {
-  itemsParaCotizar: ProductoConOpcionales[];
-  resultadosCalculados: Record<string, CalculationResult>;
-  selectedProfileId: string | null;
+  productosConOpcionalesSeleccionados?: ProductoConOpcionales[];
+  selectedProfileId?: string | null;
   nombrePerfil?: string;
-  anoEnCursoGlobal: number;
+  // anoEnCursoGlobal?: number; // Se usará el año actual directamente
+}
+
+interface LineaDeTrabajoConCosto extends ProductoConOpcionales {
+  costoBaseTotalEur: number;
+  detalleCalculoPrincipal?: CalculationResult;
+  detallesCalculoOpcionales?: CalculationResult[];
+  precioVentaTotalClienteCLPPrincipal?: number;
 }
 
 // --- Helpers de Formato (Similares a PerfilesPanel.tsx) ---
+const formatCurrency = (value: number | null | undefined, currencySymbol: string = '€') => {
+  if (value === null || value === undefined || isNaN(value)) return 'N/A';
+  return `${currencySymbol}${value.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 const formatCLP = (value: number | null | undefined): string => {
   if (value === null || value === undefined || isNaN(value)) return '--';
   return `$ ${value.toLocaleString('es-CL', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`; // Sin decimales para CLP general
@@ -140,344 +153,534 @@ const sectionLabels: Record<string, Record<string, string>> = {
         tipoCambioUsdClpAplicado: "Tipo Cambio USD/CLP Aplicado",
         precioNetoCompraBaseCLP: "Precio Neto Compra Base (CLP)",
         margenCLP: "Margen (CLP)",
-        precioVentaNetoCLP: "Precio Venta Neto (CLP)"
+        precioVentaNetoCLP: "Precio Venta Neto (CLP)",
+        precioVentaNetoCLP_AntesDescCliente: "Precio Venta Neto (CLP) (Antes Desc. Cliente)"
     },
     precios_cliente: {
+        descuentoClienteCLP: "Descuento Cliente (CLP)",
         precioNetoVentaFinalCLP: "Precio Neto Venta Final (CLP)",
         ivaVentaCLP: "IVA Venta (19%) (CLP)",
         precioVentaTotalClienteCLP: "Precio Venta Total Cliente (CLP)"
     }
 };
 
-const RenderResultDetails: React.FC<{ result: CalculationResult }> = ({ result }) => {
-    if (result.error) {
-        return <Typography style={{ color: 'red', fontWeight: 'bold' }}>Error en cálculo: {result.error}</Typography>;
+const RenderResultDetails: React.FC<{ detalle: CalculationResult | null, profile: CostoPerfilData | null }> = ({ detalle, profile }) => {
+    if (!detalle) {
+        return <Typography variant="body2" color="textSecondary">Seleccione un perfil para ver el cálculo detallado.</Typography>;
     }
-    if (!result.calculados || !result.inputs) {
-        return <Typography>Datos de cálculo incompletos.</Typography>;
+    if (detalle.error) {
+        return <Alert severity="error">Error en el cálculo: {detalle.error}</Alert>;
     }
-
-    const { calculados, inputs } = result;
-
-    // Función para renderizar una sección específica
-    const renderSection = (title: string, data: Record<string, number | undefined> | undefined, labels: Record<string, string>) => {
-        if (!data || Object.keys(data).length === 0) return null;
-        return (
-            <div style={{ marginBottom: '15px' }}>
-                <Typography variant="h6" component="h4" style={{ fontSize: '1em', fontWeight: '600', color: '#333', borderBottom: '1px solid #eee', paddingBottom: '5px', marginBottom: '10px' }}>{title}</Typography>
-                {Object.entries(data).map(([key, value]) => {
-                    const label = labels[key] || key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-                    let formattedValue = '--';
-                    if (typeof value === 'number') {
-                        if (key.toLowerCase().includes('_clp')) formattedValue = formatCLP(value);
-                        else if (key.toLowerCase().endsWith('_eur')) formattedValue = formatGenericCurrency(value, 'EUR');
-                        else if (key.toLowerCase().endsWith('_usd')) formattedValue = formatGenericCurrency(value, 'USD');
-                        else if (key.toLowerCase().includes('_pct') || key.toLowerCase().startsWith('tasa_') || key.toLowerCase().includes('factor') || key.toLowerCase().includes('margen_adicional_pct') || key.toLowerCase().includes('descuento_cliente_pct')) formattedValue = formatPercentDisplay(value);
-                        else if (key.toLowerCase().includes('tipo_cambio') || key.toLowerCase().includes('tipocambio')) formattedValue = formatNumber(value, 6);
-                        else formattedValue = formatNumber(value, 2); // Default a 2 decimales para otros números
-                    } else if (value === undefined && inputs[key] !== undefined) {
-                         // Caso especial para inputs que podrían no estar en `calculados` pero sí en `inputs`.
-                        const inputValue = inputs[key];
-                        if (typeof inputValue === 'number') {
-                            if (key.toLowerCase().includes('_clp')) formattedValue = formatCLP(inputValue);
-                            else if (key.toLowerCase().endsWith('_eur')) formattedValue = formatGenericCurrency(inputValue, 'EUR');
-                            else if (key.toLowerCase().endsWith('_usd')) formattedValue = formatGenericCurrency(inputValue, 'USD');
-                            else if (key.toLowerCase().includes('_pct') || key.toLowerCase().startsWith('tasa_')) formattedValue = formatPercentDisplay(inputValue/100); // Asumir que los inputs % de perfil vienen como 10, no 0.1
-                            else formattedValue = formatNumber(inputValue, 2);
-                        } else {
-                            formattedValue = String(inputValue); 
-                        }
-                    }
-                    return (
-                        <div key={key} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9em', marginBottom: '3px' }}>
-                            <Typography component="span">{label}:</Typography>
-                            <Typography component="span" style={{ fontWeight: '500' }}>{formattedValue}</Typography>
-                        </div>
-                    );
-                })}
-            </div>
-        );
+    const profileNameFromCalc = detalle.profileName;
+    const currentProfileName = profile?.nombre_perfil;
+    const displayProfileName = currentProfileName || profileNameFromCalc || "Perfil Desconocido";
+    const displayProfileId = profile?._id || "ID Desconocido"; 
+    const inputs = detalle.inputs;
+    const calculados = detalle.calculados;
+    if (!inputs || !calculados) {
+        return <Alert severity="warning">Datos del cálculo detallado incompletos o en formato inesperado.</Alert>;
+    }
+    const formatValue = (value: any, key: string): string => {
+        if (typeof value === 'number') {
+            if (key.toLowerCase().includes('_clp')) return formatCLP(value);
+            else if (key.toLowerCase().endsWith('_eur')) return formatGenericCurrency(value, 'EUR');
+            else if (key.toLowerCase().endsWith('_usd')) return formatGenericCurrency(value, 'USD');
+            else if (key.toLowerCase().includes('_pct') || key.toLowerCase().startsWith('tasa_') || key.toLowerCase().includes('factor') || key.toLowerCase().includes('margen_adicional_pct') || key.toLowerCase().includes('descuento_cliente_pct')) return formatPercentDisplay(value);
+            else if (key.toLowerCase().includes('tipo_cambio') || key.toLowerCase().includes('tipocambio')) return formatNumber(value, 6);
+            else return formatNumber(value, 2);
+        } else if (value === undefined && inputs[key] !== undefined) {
+            const inputValue = inputs[key];
+            if (typeof inputValue === 'number') {
+                if (key.toLowerCase().includes('_clp')) return formatCLP(inputValue);
+                else if (key.toLowerCase().endsWith('_eur')) return formatGenericCurrency(inputValue, 'EUR');
+                else if (key.toLowerCase().endsWith('_usd')) return formatGenericCurrency(inputValue, 'USD');
+                else if (key.toLowerCase().includes('_pct') || key.toLowerCase().startsWith('tasa_')) return formatPercentDisplay(inputValue/100);
+                else return formatNumber(inputValue, 2);
+            } else {
+                return String(inputValue); 
+            }
+        }
+        return '--';
     };
 
     return (
-        <div style={{ backgroundColor: '#f9f9f9', padding: '15px', borderRadius: '6px', border: '1px solid #e0e0e0' }}>
-            {renderSection("Costo de Producto", calculados.costo_producto, sectionLabels.costo_producto || {})}
-            {renderSection("Logística y Seguro (EXW a Chile)", calculados.logistica_seguro, sectionLabels.logistica_seguro || {})}
-            {renderSection("Costos de Importación", calculados.importacion, sectionLabels.importacion || {})}
-            {renderSection("Costo puesto en Bodega (Landed Cost)", calculados.landed_cost, sectionLabels.landed_cost || {})}
-            {renderSection("Conversión a CLP y Margen", calculados.conversion_margen, sectionLabels.conversion_margen || {})}
-            {renderSection("Precios para Cliente", calculados.precios_cliente, sectionLabels.precios_cliente || {})}
-        </div>
+        <Box sx={{ mt: 2, p: 2, border: '1px dashed grey' }}>
+            <Typography variant="h6" gutterBottom>
+                Detalle del Cálculo (Perfil: {displayProfileName} - ID: {displayProfileId})
+            </Typography>
+
+            {/* Sección de Inputs Utilizados */}
+            <Accordion sx={{ mb: 1 }}>
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography sx={{ width: '40%', flexShrink: 0, fontWeight: 'medium' }}>Campo (Input)</Typography>
+                    <Typography sx={{ color: 'text.secondary' }}>Valor Utilizado</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                    <Grid container spacing={1}>
+                        {Object.entries(inputs).map(([key, value]) => (
+                            <React.Fragment key={`input-${key}`}>
+                                <Grid item xs={6}><Typography variant="body2"><em>{inputLabels[key] || key}:</em></Typography></Grid>
+                                <Grid item xs={6}><Typography variant="body2">{formatValue(value, key)}</Typography></Grid>
+                            </React.Fragment>
+                        ))}
+                        {/* Mostrar los parámetros del perfil que se usaron */}
+                        {profile && (
+                            <>
+                                <Grid item xs={12}><Typography variant="subtitle2" sx={{ mt: 1 }}>Parámetros del Perfil Aplicado:</Typography></Grid>
+                                {Object.entries(profile).map(([key, value]) => {
+                                    // No mostrar _id, nombre_perfil, descripcion_perfil aquí si ya se muestran arriba o no son numéricos relevantes
+                                    if (key === '_id' || key === 'nombre_perfil' || key === 'descripcion_perfil' || key === 'createdAt' || key === 'updatedAt' || key === '__v' || key === 'activo') {
+                                        return null;
+                                    }
+                                    // Si es un campo _pct, mostrar como porcentaje
+                                    const displayValue = key.endsWith('_pct') ? `${(Number(value) * 100).toFixed(2)}%` : formatValue(value, key);
+                                    return (
+                                        <React.Fragment key={`profile-param-${key}`}>
+                                            <Grid item xs={6}><Typography variant="body2" color="text.secondary"><em>{inputLabels[key] || key}:</em></Typography></Grid>
+                                            <Grid item xs={6}><Typography variant="body2" color="text.secondary">{displayValue}</Typography></Grid>
+                                        </React.Fragment>
+                                    );
+                                })}
+                            </>
+                        )}
+                    </Grid>
+                </AccordionDetails>
+            </Accordion>
+
+            {/* Sección de Resultados Calculados por Etapa */}
+            {Object.entries(calculados).map(([stageName, stageValues]) => (
+                <Accordion key={stageName} sx={{ mb: 1 }}>
+                    <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                        <Typography sx={{ width: '40%', flexShrink: 0, fontWeight: 'medium' }}>{apiValuesLabels[stageName] || stageName.replace(/_/g, ' ')}</Typography>
+                        {/* Mostrar algún valor consolidado si aplica, ej: Precio Lista Final CLP */}
+                        {stageName === "PRECIOS_CLIENTE" && stageValues.precio_lista_final_clp_iva_incl && (
+                             <Typography sx={{ color: 'text.secondary' }}>
+                                Precio Lista Final: {formatValue(stageValues.precio_lista_final_clp_iva_incl, 'clp')}
+                            </Typography>
+                        )}
+                    </AccordionSummary>
+                    <AccordionDetails>
+                        <Grid container spacing={1}>
+                            {Object.entries(stageValues).map(([key, value]) => (
+                                <React.Fragment key={`${stageName}-${key}`}>
+                                    <Grid item xs={6}><Typography variant="body2"><em>{apiValuesLabels[key] || key.replace(/_/g, ' ')}:</em></Typography></Grid>
+                                    <Grid item xs={6}><Typography variant="body2">{formatValue(value, key)}</Typography></Grid>
+                                </React.Fragment>
+                            ))}
+                        </Grid>
+                    </AccordionDetails>
+                </Accordion>
+            ))}
+
+        </Box>
     );
 };
 
+// --- Nueva función para llamar al API de cálculo --- (Modificada)
+const fetchCalculoDetallado = async (
+  costoFabricaOriginalEUR: number,
+  fechaCotizacionStr: string | undefined,
+  profileId: string,
+  anoEnCurso: number,
+  tcEurUsd: number,
+  nombrePerfil: string
+): Promise<CalculationResult> => {
+  
+  let parsedYear: number | undefined;
+  if (fechaCotizacionStr && /^\d{4}$/.test(fechaCotizacionStr)) { // Es un string de 4 dígitos (ej: "2023")
+    parsedYear = parseInt(fechaCotizacionStr, 10);
+  } else if (fechaCotizacionStr) { // Intenta parsear como fecha más completa
+    const dateObj = new Date(fechaCotizacionStr);
+    // Verificar si el objeto Date es válido y getFullYear() devuelve un número
+    if (dateObj instanceof Date && !isNaN(dateObj.valueOf()) && !isNaN(dateObj.getFullYear())) {
+      parsedYear = dateObj.getFullYear();
+    } else {
+        console.warn(`[fetchCalculoDetallado] fechaCotizacionStr "${fechaCotizacionStr}" no pudo ser parseada a una fecha válida.`);
+    }
+  }
+
+  const anoCotizacion = parsedYear !== undefined ? parsedYear : anoEnCurso - 1;
+
+  const payload = {
+    profileId: profileId,
+    anoCotizacion: anoCotizacion, 
+    anoEnCurso: anoEnCurso,
+    costoFabricaOriginalEUR: costoFabricaOriginalEUR,
+    tipoCambioEurUsdActual: tcEurUsd,
+  };
+
+  console.log('[ResultadosCalculoCostosPanel] Enviando payload a /api/costo-perfiles/calcular-producto:', payload);
+
+  try {
+    const response = await fetch('/api/costo-perfiles/calcular-producto', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', },
+      body: JSON.stringify(payload),
+    });
+    const data = await response.json();
+    if (!response.ok) {
+      console.error('[ResultadosCalculoCostosPanel] Error API:', data);
+      throw new Error(data.message || `Error ${response.status} al calcular costos.`);
+    }
+    if (data && data.resultado && data.resultado.inputs && data.resultado.calculados) {
+      return {
+        inputs: data.resultado.inputs,
+        calculados: data.resultado.calculados,
+        profileName: data.perfilUsado?.nombre_perfil || data.perfilUsado?.nombre || nombrePerfil, 
+      };
+    } else {
+      console.error('[ResultadosCalculoCostosPanel] Respuesta API inesperada:', data);
+      throw new Error('La respuesta del servidor no tiene el formato esperado.');
+    }
+  } catch (error: any) {
+    console.error('[ResultadosCalculoCostosPanel] Catch Fetch Error:', error);
+    return {
+      error: error.message || 'Error de conexión o al procesar la respuesta del cálculo.',
+      profileName: nombrePerfil,
+    };
+  }
+};
 
 export default function ResultadosCalculoCostosPanel() {
   const location = useLocation();
   const navigate = useNavigate();
   const state = location.state as LocationState | null;
-  const [isLoading, setIsLoading] = useState(false); // Mantener por si se usa para alguna precarga futura, aunque la acción principal cambia
 
-  // Estado para controlar qué items PRINCIPALES están expandidos
-  const [expandedPrincipales, setExpandedPrincipales] = useState<Record<string, boolean>>({});
-  // Estado para controlar qué items OPCIONALES están expandidos (clave: principalId_opcionalId)
-  const [expandedOpcionales, setExpandedOpcionales] = useState<Record<string, boolean>>({});
+  const [lineasCalculadas, setLineasCalculadas] = useState<LineaDeTrabajoConCosto[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [errorCarga, setErrorCarga] = useState<string | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Record<string, boolean>>({});
 
-  // Función para cambiar el estado de expansión de un item PRINCIPAL
-  const toggleExpandPrincipal = (principalKey: string) => {
-    setExpandedPrincipales(prev => ({
-      ...prev,
-      [principalKey]: !prev[principalKey]
-    }));
-    // Opcional: Contraer todos los opcionales de este principal si el principal se contrae
-    if (expandedPrincipales[principalKey]) {
-      const newOpcionalesExpanded = { ...expandedOpcionales };
-      Object.keys(newOpcionalesExpanded).forEach(key => {
-        if (key.startsWith(principalKey + '_')) {
-          delete newOpcionalesExpanded[key];
+  const [perfilesList, setPerfilesList] = useState<CostoPerfilData[]>([]);
+  const [selectedProfileId, setSelectedProfileId] = useState<string>(state?.selectedProfileId || '');
+  const [currentProfileData, setCurrentProfileData] = useState<CostoPerfilData | null>(null);
+  const [isProfilesLoading, setIsProfilesLoading] = useState<boolean>(true);
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const cargarPerfilesDesdeAPI = async () => {
+        setIsProfilesLoading(true);
+        setProfileError(null);
+        try {
+          const data = await getPerfiles(); 
+          setPerfilesList(data || []); 
+          let initialProfileIdToSelect = state?.selectedProfileId || '';
+          if (!initialProfileIdToSelect && data && data.length > 0) {
+            initialProfileIdToSelect = data[0]._id;
+          }
+          if (initialProfileIdToSelect) {
+            const perfilPreseleccionado = data.find((p: CostoPerfilData) => p._id === initialProfileIdToSelect);
+            if (perfilPreseleccionado) {
+              setCurrentProfileData(perfilPreseleccionado);
+              setSelectedProfileId(initialProfileIdToSelect);
+            } else if (data && data.length > 0) {
+              setCurrentProfileData(data[0]);
+              setSelectedProfileId(data[0]._id);
+            }
+          }
+        } catch (err: any) {
+          console.error("[ResultadosCalculoCostosPanel] Error cargando perfiles:", err);
+          setProfileError(err.message || "No se pudieron cargar los perfiles de costo.");
+          setPerfilesList([]);
+        } finally {
+          setIsProfilesLoading(false);
         }
-      });
-      setExpandedOpcionales(newOpcionalesExpanded);
-    }
-  };
+      };
+      cargarPerfilesDesdeAPI();
+  }, [state?.selectedProfileId]);
 
-  // Función para cambiar el estado de expansión de un item OPCIONAL
-  const toggleExpandOpcional = (opcionalKey: string) => {
-    setExpandedOpcionales(prev => ({
-      ...prev,
-      [opcionalKey]: !prev[opcionalKey]
-    }));
-  };
-
-  if (!state || !state.itemsParaCotizar || !state.resultadosCalculados) {
-    return (
-        <div style={{ padding: '20px', textAlign: 'center' }}>
-            <AlertTriangle size={48} color="orange" style={{ marginBottom: '20px' }}/>
-            <Typography variant="h5" gutterBottom>Error</Typography>
-            <Typography variant="body1">
-                No se encontraron datos de cálculo. Por favor, vuelva a la página anterior e inténtelo de nuevo.
-            </Typography>
-            <Button variant="contained" onClick={() => navigate(-1)} style={{ marginTop: '20px' }}>
-                Volver
-            </Button>
-        </div>
-    );
-  }
-
-  const { itemsParaCotizar, resultadosCalculados, selectedProfileId, nombrePerfil, anoEnCursoGlobal } = state;
-  
-  // --- INICIO: Calcular Totales Agregados por Tipo (Principal/Opcional) ---
-  const inicializarTotales = () => ({
-    costoTotalFabricaUSD_EXW: 0,
-    landedCostTotalUSD: 0,
-    precioVentaNetoTotalCLP: 0,
-    precioVentaTotalClienteCLP: 0,
-    itemsCalculadosConExito: 0,
-  });
-
-  const totalesPrincipales = inicializarTotales();
-  const totalesOpcionales = inicializarTotales();
-
-  Object.entries(resultadosCalculados).forEach(([key, result]) => {
-    if (result.calculados && !result.error) {
-      const targetObject = key.startsWith('principal-') ? totalesPrincipales : 
-                           key.startsWith('opcional-') ? totalesOpcionales : null;
-      
-      if (targetObject) {
-        targetObject.itemsCalculadosConExito++;
-        if (result.calculados.costo_producto?.costoFinalFabricaUSD_EXW) {
-          targetObject.costoTotalFabricaUSD_EXW += result.calculados.costo_producto.costoFinalFabricaUSD_EXW;
-        }
-        if (result.calculados.landed_cost?.precioNetoCompraBaseUSD_LandedCost) {
-          targetObject.landedCostTotalUSD += result.calculados.landed_cost.precioNetoCompraBaseUSD_LandedCost;
-        }
-        if (result.calculados.precios_cliente?.precioNetoVentaFinalCLP) {
-          targetObject.precioVentaNetoTotalCLP += result.calculados.precios_cliente.precioNetoVentaFinalCLP;
-        }
-        if (result.calculados.precios_cliente?.precioVentaTotalClienteCLP) {
-          targetObject.precioVentaTotalClienteCLP += result.calculados.precios_cliente.precioVentaTotalClienteCLP;
-        }
-      }
-    }
-  });
-  // --- FIN: Calcular Totales Agregados por Tipo ---
-
-  // Estilos generales para esta página
-  const pageStyle: React.CSSProperties = { padding: '24px', maxWidth: '1200px', margin: '0 auto' };
-  const headerStyle: React.CSSProperties = { marginBottom: '24px', paddingBottom: '10px', borderBottom: '1px solid #ddd' };
-  const itemCardStyle: React.CSSProperties = { backgroundColor: 'white', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)', marginBottom: '24px' };
-  const footerNavStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', marginTop: '30px', paddingTop: '20px', borderTop: '1px solid #ddd' };
-  const primaryButtonStyle: React.CSSProperties = { padding: '10px 20px', borderRadius: '6px', border: '1px solid transparent', cursor: 'pointer', fontSize: '14px', fontWeight: 500, backgroundColor: '#1e88e5', color: 'white' };
-  const secondaryButtonStyle: React.CSSProperties = { ...primaryButtonStyle, backgroundColor: '#6c757d' }; 
-  const itemHeaderStyle: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', padding: '10px 0' };
-  const itemTitleStyle: React.CSSProperties = { fontSize: '1.2em', fontWeight: '600', color: '#343a40' };
-
-  const handleNavegarAConfiguracion = () => {
-    if (!state) {
-      console.error("Error: No hay estado disponible para pasar a la configuración.");
-      alert("Error: No hay datos para configurar la cotización. Por favor, vuelve a intentarlo.");
+  const procesarLineasYCalcularDetalles = useCallback(async () => {
+    if (!state?.productosConOpcionalesSeleccionados || state.productosConOpcionalesSeleccionados.length === 0) {
+      setErrorCarga("No se recibieron datos de configuración para calcular. Por favor, vuelva a la selección de equipos.");
+      setLineasCalculadas([]);
+      setIsLoading(false);
       return;
     }
 
-    const {
-      itemsParaCotizar,
-      resultadosCalculados,
-      selectedProfileId,
-      nombrePerfil,
-      anoEnCursoGlobal
-    } = state;
+    const productosParaProcesar = Array.isArray(state.productosConOpcionalesSeleccionados) ? state.productosConOpcionalesSeleccionados : [];
 
-    if (!itemsParaCotizar || Object.keys(resultadosCalculados).length === 0) {
-        console.error("Error: itemsParaCotizar o resultadosCalculados están vacíos.");
-        alert("Error: No hay items o resultados calculados para configurar.");
-        return;
+    if (!currentProfileData) {
+      const lineasBase = productosParaProcesar.map((item: ProductoConOpcionales) => {
+        let costoBaseTotal = item.principal.datos_contables?.costo_fabrica || 0;
+        item.opcionales.forEach((opcional: Producto) => {
+          costoBaseTotal += opcional.datos_contables?.costo_fabrica || 0;
+        });
+        return {
+          ...item,
+          costoBaseTotalEur: costoBaseTotal,
+          detalleCalculoPrincipal: { error: "Seleccione un perfil para ver el cálculo detallado.", profileName: "Perfil no seleccionado" },
+          detallesCalculoOpcionales: item.opcionales.map(() => ({ error: "Seleccione un perfil para ver el cálculo detallado.", profileName: "Perfil no seleccionado" })),
+          precioVentaTotalClienteCLPPrincipal: undefined,
+        };
+      });
+      setLineasCalculadas(lineasBase);
+      setIsLoading(false);
+      setIsCalculating(false);
+      return;
     }
-    
-    // Navegar a la nueva página de configuración, pasando el estado actual
-    navigate('/configuracion-panel', {
-      state: {
-        itemsParaCotizar,
-        resultadosCalculados,
-        selectedProfileId,
-        nombrePerfil,
-        anoEnCursoGlobal
-      }
-    });
+
+    setIsCalculating(true);
+    setErrorCarga(null);
+
+    const anoActual = new Date().getFullYear();
+    const tcEurUsdActual = 1.117564;
+
+    const getFechaCotizacionAsString = (fecha: string | Date | undefined): string | undefined => {
+        if (typeof fecha === 'string' || fecha === undefined) {
+            return fecha;
+        }
+        if (fecha instanceof Date) {
+            return fecha.toISOString();
+        }
+        return undefined; // o maneja otros casos como prefieras
+    };
+
+    try {
+      const lineasConDetallePromises = productosParaProcesar.map(async (item: ProductoConOpcionales) => {
+        let costoBaseTotal = item.principal.datos_contables?.costo_fabrica || 0;
+        item.opcionales.forEach((opcional: Producto) => {
+          costoBaseTotal += opcional.datos_contables?.costo_fabrica || 0;
+        });
+
+        const detallePrincipal = await fetchCalculoDetallado(
+          item.principal.datos_contables?.costo_fabrica || 0,
+          getFechaCotizacionAsString(item.principal.datos_contables?.fecha_cotizacion),
+          currentProfileData._id,
+          anoActual,
+          tcEurUsdActual,
+          currentProfileData.nombre_perfil
+        );
+
+        const detallesOpcionalesPromises = item.opcionales.map(opcional => 
+          fetchCalculoDetallado(
+            opcional.datos_contables?.costo_fabrica || 0,
+            getFechaCotizacionAsString(opcional.datos_contables?.fecha_cotizacion),
+            currentProfileData._id,
+            anoActual,
+            tcEurUsdActual,
+            currentProfileData.nombre_perfil
+          )
+        );
+        const detallesOpcionalesResultados = await Promise.all(detallesOpcionalesPromises);
+        
+        const precioCLPPrincipal = detallePrincipal?.calculados?.precios_cliente?.precioVentaTotalClienteCLP;
+
+        return {
+          ...item,
+          costoBaseTotalEur: costoBaseTotal,
+          detalleCalculoPrincipal: detallePrincipal,
+          detallesCalculoOpcionales: detallesOpcionalesResultados,
+          precioVentaTotalClienteCLPPrincipal: typeof precioCLPPrincipal === 'number' ? precioCLPPrincipal : undefined,
+        };
+      });
+
+      const nuevasLineasCalculadas = await Promise.all(lineasConDetallePromises);
+      setLineasCalculadas(nuevasLineasCalculadas);
+
+    } catch (error) {
+      console.error("[ResultadosCalculoCostosPanel] Error en Promise.all al calcular detalles:", error);
+      setErrorCarga("Ocurrió un error al obtener los cálculos detallados para una o más líneas.");
+    } finally {
+      setIsCalculating(false);
+      setIsLoading(false);
+    }
+  }, [state, currentProfileData]);
+
+  useEffect(() => {
+    setIsLoading(true);
+    procesarLineasYCalcularDetalles();
+  }, [procesarLineasYCalcularDetalles]);
+
+  const handleProfileChange = (event: SelectChangeEvent<string>) => {
+    const profileId = event.target.value as string;
+    setSelectedProfileId(profileId);
+    const selected = perfilesList.find(p => p._id === profileId);
+    setCurrentProfileData(selected || null);
   };
 
+  const toggleExpandItem = (key: string) => {
+    setExpandedItems(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
+  };
+
+  const handleVolverAResumen = () => {
+    if (state && state.productosConOpcionalesSeleccionados) {
+        navigate('/resumen-carga', { 
+            state: { 
+                itemsParaCotizar: state.productosConOpcionalesSeleccionados,
+                selectedProfileId: selectedProfileId,
+                nombrePerfil: currentProfileData?.nombre_perfil,
+            }
+        });
+    } else {
+        navigate('/equipos');
+    }
+  };
+
+  const handleNavegarAConfiguracionFinal = () => {
+    navigate('/configuracion-panel', {
+        state: {
+          lineasParaConfigurarCotizacion: lineasCalculadas,
+          selectedProfileId: selectedProfileId,
+          nombrePerfil: currentProfileData?.nombre_perfil,
+        }
+      });
+  };
+
+  if (isLoading && !isProfilesLoading) { 
+    return (
+        <Container sx={{ py: 4, textAlign: 'center' }}>
+          <Loader2 className="animate-spin" size={48} />
+          <Typography variant="h6" sx={{ mt: 2 }}>Cargando y procesando datos...</Typography>
+        </Container>
+      );
+  }
+
+  if (errorCarga && lineasCalculadas.length === 0) { 
+    return (
+        <Container sx={{ py: 4 }}>
+          <Alert severity="error" action={<Button color="inherit" size="small" onClick={() => navigate('/equipos')}>Volver a Equipos</Button>}>
+            {errorCarga}
+          </Alert>
+        </Container>
+      );
+  }
+
   return (
-    <div style={pageStyle}>
-      <div style={headerStyle}>
-        <Typography variant="h4" component="h1" gutterBottom style={{ fontWeight: 600 }}>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      <Paper elevation={3} sx={{ p: { xs: 2, md: 3 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: { xs: 2, md: 0 } }}>
+            <Calculator size={32} style={{ marginRight: '12px', color: 'primary.main' }} />
+            <Typography variant="h5" component="h1">
           Resultados del Cálculo de Costos
         </Typography>
-        <Typography variant="subtitle1" color="textSecondary">
-          Perfil de Costo Aplicado: {nombrePerfil || selectedProfileId || 'No especificado'} | Año en Curso: {anoEnCursoGlobal || 'N/A'}
-        </Typography>
-      </div>
+          </Box>
+          <FormControl sx={{ m: 1, minWidth: 250 }} size="small">
+            <InputLabel id="select-profile-label">Perfil de Costos</InputLabel>
+            <Select
+              labelId="select-profile-label"
+              id="select-profile"
+              value={isProfilesLoading ? '' : selectedProfileId}
+              label="Perfil de Costos"
+              onChange={handleProfileChange}
+              disabled={isProfilesLoading || perfilesList.length === 0}
+            >
+              {isProfilesLoading && <MenuItem value="" disabled><CircularProgress size={20} sx={{mr:1}}/>Cargando perfiles...</MenuItem>}
+              {!isProfilesLoading && perfilesList.length === 0 && <MenuItem value="" disabled>No hay perfiles disponibles</MenuItem>}
+              {perfilesList.map((perfil) => (
+                <MenuItem key={perfil._id} value={perfil._id}>
+                  {perfil.nombre_perfil}
+                </MenuItem>
+              ))}
+            </Select>
+             {profileError && <Typography color="error" variant="caption" sx={{mt:1}}>{profileError}</Typography>}
+          </FormControl>
+        </Box>
 
-      {/* --- INICIO: Sección de Resumen de Totales por Tipo --- */}
-      {(totalesPrincipales.itemsCalculadosConExito > 0 || totalesOpcionales.itemsCalculadosConExito > 0) && (
-        <div style={{ ...itemCardStyle, backgroundColor: '#eef2f9', borderLeft: '5px solid #1e88e5', marginBottom: '28px', padding: '20px' }}>
-          <Typography variant="h6" component="h2" gutterBottom style={{ color: '#1e88e5', fontWeight: 500, marginBottom: '20px' }}>
-            Resumen General de la Carga
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+          A continuación se muestra el costo base calculado para cada línea de trabajo.
+          {!currentProfileData && !isProfilesLoading && perfilesList.length > 0 && " Seleccione un perfil para ver los cálculos detallados desde el servidor."}
+          {currentProfileData && " Los detalles se obtienen del servidor usando el perfil seleccionado."}
+          {(isLoading || isCalculating) && <CircularProgress size={16} sx={{ml:1}} />}
           </Typography>
           
-          <table style={{ width: '100%', borderCollapse: 'separate', borderSpacing: '0 8px' }}>
-            <thead>
-              <tr style={{ textAlign: 'left' }}>
-                <th style={{ padding: '10px 8px', color: '#333', fontWeight: 600, borderBottom: '2px solid #1e88e5', width: '40%' }}>Concepto de Costo</th>
-                <th style={{ padding: '10px 8px', color: '#333', fontWeight: 600, borderBottom: '2px solid #1e88e5', textAlign: 'right', width: '30%' }}>
-                  Total Principales ({totalesPrincipales.itemsCalculadosConExito})
-                </th>
-                <th style={{ padding: '10px 8px', color: '#333', fontWeight: 600, borderBottom: '2px solid #1e88e5', textAlign: 'right', width: '30%' }}>
-                  Total Opcionales ({totalesOpcionales.itemsCalculadosConExito})
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {[
-                { label: "Costo Total Fábrica (EXW)", principal: totalesPrincipales.costoTotalFabricaUSD_EXW, opcional: totalesOpcionales.costoTotalFabricaUSD_EXW, format: (val: number) => formatGenericCurrency(val, 'USD') },
-                { label: "Landed Cost Total Estimado", principal: totalesPrincipales.landedCostTotalUSD, opcional: totalesOpcionales.landedCostTotalUSD, format: (val: number) => formatGenericCurrency(val, 'USD') },
-                { label: "Precio Venta Neto Total", principal: totalesPrincipales.precioVentaNetoTotalCLP, opcional: totalesOpcionales.precioVentaNetoTotalCLP, format: formatCLP },
-                { label: "Precio Venta Total Cliente (IVA Incl.)", principal: totalesPrincipales.precioVentaTotalClienteCLP, opcional: totalesOpcionales.precioVentaTotalClienteCLP, format: formatCLP, isBold: true },
-              ].map((row, index) => (
-                <tr key={index} style={{ backgroundColor: index % 2 === 0 ? '#f8f9fa' : 'white' }}>
-                  <td style={{ padding: '10px 8px', fontWeight: row.isBold ? 600 : 500, color: row.isBold ? '#1e88e5' : '#444' }}>{row.label}</td>
-                  <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: row.isBold ? 600 : 500, color: row.isBold ? '#1e88e5' : '#444' }}>
-                    {row.format(row.principal)}
-                  </td>
-                  <td style={{ padding: '10px 8px', textAlign: 'right', fontWeight: row.isBold ? 600 : 500, color: row.isBold ? '#1e88e5' : '#444' }}>
-                    {row.format(row.opcional)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {/* --- FIN: Sección de Resumen de Totales por Tipo --- */}
+        {lineasCalculadas.length === 0 && !isLoading && !isCalculating && (
+             <Alert severity="info" sx={{mt:2}}>
+                {!state?.productosConOpcionalesSeleccionados || state.productosConOpcionalesSeleccionados.length === 0 
+                    ? <>No hay productos cargados para calcular. Por favor, <Button size="small" onClick={() => navigate('/equipos')}>vuelva a la selección de equipos</Button>.</>
+                    : !currentProfileData && !isProfilesLoading && perfilesList.length > 0 
+                        ? "Por favor, seleccione un perfil de costos para iniciar el cálculo detallado." 
+                        : "Procesando o no hay datos para mostrar."
+                }
+            </Alert>
+        )}
+        
+        {errorCarga && lineasCalculadas.length > 0 && ( 
+            <Alert severity="warning" sx={{mb:2}}>{errorCarga}</Alert>
+        )}
 
-      {itemsParaCotizar.length === 0 && (
-        <Typography>No se procesaron items para cotizar.</Typography>
-      )}
+        {lineasCalculadas.map((linea, index) => {
+          const principalKey = linea.principal.codigo_producto || `principal-${index}`;
+          const isItemCalculating = isCalculating && expandedItems[principalKey];
 
-      {itemsParaCotizar.map((item, index) => {
-        const principalProductKey = item.principal.codigo_producto || `principal-${index}`;
-        const resultadoPrincipal = resultadosCalculados[`principal-${item.principal.codigo_producto}`];
-        const isPrincipalExpanded = !!expandedPrincipales[principalProductKey];
+          return (
+            <Paper key={principalKey} elevation={1} sx={{ mb: 2.5, p: 2, border: '1px solid #e0e0e0', opacity: isItemCalculating ? 0.7 : 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }} onClick={() => toggleExpandItem(principalKey)}>
+                <Typography variant="h6" component="h2" sx={{ fontWeight: 'medium' }}>
+                  {linea.principal.nombre_del_producto || 'Producto Principal Desconocido'}
+                </Typography>
+                <Box sx={{display: 'flex', alignItems: 'center'}}>
+                    {isItemCalculating && <CircularProgress size={20} sx={{mr:1}}/>}
+                    {expandedItems[principalKey] ? <ChevronUp /> : <ChevronDown />}
+                </Box>
+              </Box>
+              <Typography variant="caption" color="textSecondary" gutterBottom>
+                Código Principal: {linea.principal.codigo_producto || 'N/A'}
+              </Typography>
 
-        return (
-          <div key={principalProductKey} style={itemCardStyle}>
-            <div 
-              style={itemHeaderStyle} 
-              onClick={() => toggleExpandPrincipal(principalProductKey)}
-            >
-              <Typography variant="h6" component="h3" style={itemTitleStyle}>{item.principal.nombre_del_producto || 'Producto Principal Sin Nombre'}</Typography>
-              {isPrincipalExpanded ? <ChevronUp size={24} /> : <ChevronDown size={24} />}
-            </div>
+              <Box sx={{ my: 1.5, p: 1.5, backgroundColor: '#e6fffa', borderRadius: '4px' }}> 
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold', display: 'flex', alignItems: 'center' }}>
+                  <DollarSign size={20} style={{ marginRight: '8px', color: '#00796b' }} />
+                  Precio Venta Total (CLP):
+                  <span style={{ marginLeft: 'auto', fontSize:'1.1em' }}>
+                    {linea.precioVentaTotalClienteCLPPrincipal !== undefined 
+                      ? formatCLP(linea.precioVentaTotalClienteCLPPrincipal) 
+                      : (isCalculating && !linea.detalleCalculoPrincipal?.error ? 'Calculando...' : formatCLP(0)) 
+                    }
+                  </span>
+                </Typography>
+              </Box>
 
-            {isPrincipalExpanded && (
-              <div style={{ marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #eee' }}>
-                {resultadoPrincipal ? (
-                  <RenderResultDetails result={resultadoPrincipal} />
-                ) : (
-                  <Typography style={{ color: 'orange' }}>No se encontraron resultados para este producto principal.</Typography>
-                )}
+              {expandedItems[principalKey] && (
+                <Box sx={{ mt: 2, pl: 1 }}>
+                  {isCalculating && !linea.detalleCalculoPrincipal && <Box sx={{display: 'flex', justifyContent: 'center', my:2}}><CircularProgress /><Typography sx={{ml:1}}>Calculando detalles del principal...</Typography></Box>}
+                  {linea.detalleCalculoPrincipal && (
+                    <RenderResultDetails detalle={linea.detalleCalculoPrincipal ?? null} profile={currentProfileData} />
+                  )}
 
-                {item.opcionales && item.opcionales.length > 0 && (
-                  <div style={{ marginTop: '20px', paddingLeft: '10px' }}> {/* Ligero indentado para opcionales */}
-                    <Typography variant="subtitle1" component="h4" style={{ fontSize: '1.1em', fontWeight: '600', color: '#495057', marginBottom: '10px' }}>Opcionales:</Typography>
-                    {item.opcionales.map((opcional, opcionalIndex) => {
-                      const opcionalProductKey = opcional.codigo_producto || `opcional-${opcionalIndex}`;
-                      const opcionalUniqueKey = `${principalProductKey}_${opcionalProductKey}`;
-                      const resultadoOpcional = resultadosCalculados[`opcional-${opcional.codigo_producto}`];
-                      const isOpcionalExpanded = !!expandedOpcionales[opcionalUniqueKey];
-
-                      return (
-                        <div key={opcionalUniqueKey} style={{ marginBottom: '15px', marginLeft:'10px', borderLeft: '2px solid #f0f0f0', paddingLeft:'15px' }}>
-                           <div 
-                            style={{...itemHeaderStyle, padding: '5px 0'}} // Estilo más compacto para opcionales
-                            onClick={() => toggleExpandOpcional(opcionalUniqueKey)}
-                          >
-                            <Typography variant="subtitle2" component="h5" style={{ fontSize: '1em', fontWeight: '500', color: '#555' }}>{opcional.nombre_del_producto || 'Opcional Sin Nombre'}</Typography>
-                            {isOpcionalExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                          </div>
-                          {isOpcionalExpanded && (
-                            <div style={{marginTop: '10px'}}>
-                                {resultadoOpcional ? (
-                                <RenderResultDetails result={resultadoOpcional} />
-                                ) : (
-                                <Typography style={{ color: 'orange' }}>No se encontraron resultados para este opcional.</Typography>
-                                )}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+                  {linea.detallesCalculoOpcionales && linea.detallesCalculoOpcionales.length > 0 && (
+                    <Box sx={{mt: 2, ml: 2, borderLeft: '2px solid #eee', pl:2}}>
+                        <Typography variant="subtitle1" gutterBottom sx={{fontWeight:'bold', color: '#555'}} >Cálculo Detallado Opcionales:</Typography>
+                        {linea.detallesCalculoOpcionales.map((detalleOpcional, idx) => (
+                            <Box key={idx} sx={{mb:2}}>
+                                <Typography variant="subtitle2" sx={{fontWeight:'medium', color: '#666'}}>
+                                    Opcional: {linea.opcionales[idx]?.nombre_del_producto || `Opcional ${idx+1}`}
+                                </Typography>
+                                <RenderResultDetails detalle={detalleOpcional ?? null} profile={currentProfileData} />
+                            </Box>
+                        ))}
+                    </Box>
+                  )}
+                </Box>
+              )}
+            </Paper>
         );
       })}
 
-      <div style={footerNavStyle}>
-        <Button variant="outlined" startIcon={<ArrowLeft />} onClick={() => navigate('/equipos')} /* style={secondaryButtonStyle} */ >
-          Volver y Modificar
+        <Box sx={{ mt: 4, display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+          <Button 
+            variant="outlined" 
+            startIcon={<ArrowLeft />} 
+            onClick={handleVolverAResumen}
+            disabled={isCalculating}
+          >
+            Volver a Resumen
         </Button>
-        <Button 
-          variant="contained" 
-          color="primary" 
-          onClick={handleNavegarAConfiguracion}
-          disabled={isLoading}
-          style={{ marginTop: '20px', padding: '10px 20px' }}
-          startIcon={isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-        >
-          Configurar Cotización y Datos Adicionales
+          <Button 
+            variant="contained" 
+            color="primary" 
+            startIcon={<ArrowRight />} 
+            onClick={handleNavegarAConfiguracionFinal}
+            disabled={isCalculating || lineasCalculadas.length === 0 || lineasCalculadas.some(l => !l.detalleCalculoPrincipal || l.detalleCalculoPrincipal.error)}
+          >
+            Configurar Cotización y Datos Adicionales
         </Button>
-      </div>
-    </div>
+        </Box>
+      </Paper>
+    </Container>
   );
 } 
