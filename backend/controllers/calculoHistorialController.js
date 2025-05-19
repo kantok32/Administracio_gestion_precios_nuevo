@@ -219,22 +219,22 @@ const generarHtmlParaPdf = (datos) => {
     let itemsHtml = '';
     let subtotalNetoGeneral = 0;
     
-    const primerProductoPrincipal = itemsParaCotizar.length > 0 ? itemsParaCotizar[0].principal.nombre_del_producto : "Servicios Varios";
-    const tituloDocumento = `${primerProductoPrincipal} - Cotización`;
+    const primerProductoPrincipal = itemsParaCotizar.length > 0 ? itemsParaCotizar[0].principal.nombre_del_producto : "Equipos Varios";
+    const tituloDocumento = `Informe de Configuración: ${primerProductoPrincipal}`;
 
     itemsParaCotizar.forEach((item, index) => {
         const productoPrincipal = item.principal;
-        const keyProductoPrincipal = `principal-${productoPrincipal.codigo_producto}`;
-        const calculosProductoMap = resultadosCalculados instanceof Map ? resultadosCalculados : new Map(Object.entries(resultadosCalculados));
-        const calculosProducto = calculosProductoMap.get(keyProductoPrincipal);
+        // const keyProductoPrincipal = `principal-${productoPrincipal.codigo_producto}`;
+        // const calculosProductoMap = resultadosCalculados instanceof Map ? resultadosCalculados : new Map(Object.entries(resultadosCalculados));
+        // const calculosProducto = calculosProductoMap.get(keyProductoPrincipal);
 
-        let precioUnitarioNetoPrincipal = 0;
-        if (calculosProducto && calculosProducto.calculados && calculosProducto.calculados.precios_cliente) {
-            precioUnitarioNetoPrincipal = calculosProducto.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
-        }
-        const cantidadPrincipal = 1;
-        const totalPrincipal = precioUnitarioNetoPrincipal * cantidadPrincipal;
-        subtotalNetoGeneral += totalPrincipal;
+        // let precioUnitarioNetoPrincipal = 0;
+        // if (calculosProducto && calculosProducto.calculados && calculosProducto.calculados.precios_cliente) {
+        //     precioUnitarioNetoPrincipal = calculosProducto.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
+        // }
+        // const cantidadPrincipal = 1;
+        // const totalPrincipal = precioUnitarioNetoPrincipal * cantidadPrincipal;
+        // subtotalNetoGeneral += totalPrincipal;
 
         itemsHtml += `
             <tr>
@@ -242,23 +242,20 @@ const generarHtmlParaPdf = (datos) => {
                     <b>${productoPrincipal.nombre_del_producto || 'Producto Principal Sin Nombre'}</b><br>
                     <small style="white-space: pre-line;">${productoPrincipal.Descripcion || 'Sin descripción detallada.'}</small>
                 </td>
-                <td style="text-align:center;">${cantidadPrincipal}</td>
-                <td style="text-align:right;">${formatCLP(precioUnitarioNetoPrincipal)}</td>
-                <td style="text-align:right;">${formatCLP(totalPrincipal)}</td>
             </tr>
         `;
 
         if (item.opcionales && item.opcionales.length > 0) {
             item.opcionales.forEach(opcional => {
-                const keyOpcional = `opcional-${opcional.codigo_producto}`;
-                const calculosOpcional = calculosProductoMap.get(keyOpcional);
-                let precioNetoOpcional = 0;
-                if (calculosOpcional && calculosOpcional.calculados && calculosOpcional.calculados.precios_cliente) {
-                    precioNetoOpcional = calculosOpcional.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
-                }
-                const cantidadOpcional = 1;
-                const totalOpcional = precioNetoOpcional * cantidadOpcional;
-                subtotalNetoGeneral += totalOpcional;
+                // const keyOpcional = `opcional-${opcional.codigo_producto}`;
+                // const calculosOpcional = calculosProductoMap.get(keyOpcional);
+                // let precioNetoOpcional = 0;
+                // if (calculosOpcional && calculosOpcional.calculados && calculosOpcional.calculados.precios_cliente) {
+                //     precioNetoOpcional = calculosOpcional.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
+                // }
+                // const cantidadOpcional = 1;
+                // const totalOpcional = precioNetoOpcional * cantidadOpcional;
+                // subtotalNetoGeneral += totalOpcional;
 
                 itemsHtml += `
                     <tr class="opcional-row">
@@ -266,18 +263,15 @@ const generarHtmlParaPdf = (datos) => {
                             &nbsp;&nbsp;&nbsp;└─ <i>${opcional.nombre_del_producto || 'Opcional Sin Nombre'}</i><br>
                             &nbsp;&nbsp;&nbsp;<small style="padding-left:15px; white-space: pre-line;"><i>${opcional.Descripcion || 'Sin descripción detallada.'}</i></small>
                         </td>
-                        <td style="text-align:center;">${cantidadOpcional}</td>
-                        <td style="text-align:right;">${formatCLP(precioNetoOpcional)}</td>
-                        <td style="text-align:right;">${formatCLP(totalOpcional)}</td>
                     </tr>
                 `;
             });
         }
     });
 
-    const ivaPct = 0.19; 
-    const montoIva = subtotalNetoGeneral * ivaPct;
-    const totalGeneral = subtotalNetoGeneral + montoIva;
+    // const ivaPct = 0.19; 
+    // const montoIva = subtotalNetoGeneral * ivaPct;
+    // const totalGeneral = subtotalNetoGeneral + montoIva;
 
     let htmlContent = `
     <html>
@@ -482,33 +476,25 @@ const generarHtmlParaPdf = (datos) => {
 
             <div class="info-columns">
                 <div class="column">
-                    <h3>Detalles del Presupuesto</h3>
-                    <p><strong>Referencia:</strong> ${referenciaDocumento || 'N/A'}</p>
-                    <p><strong>Fecha Creación:</strong> ${fechaCreacionCotizacion ? new Date(fechaCreacionCotizacion).toLocaleDateString('es-CL') : 'N/A'}</p>
-                    <p><strong>Fecha Caducidad:</strong> ${fechaCaducidadCotizacion ? new Date(fechaCaducidadCotizacion).toLocaleDateString('es-CL') : 'N/A'}</p>
-                    <br>
-                    <p><strong>Presupuesto creado por:</strong></p>
+                    <h3>Detalles del Emisor</h3>
+                    <p><strong>Configuración Nº:</strong> ${numeroCotizacion || 'N/A'}</p>                    
+                    <p><strong>Informe creado por:</strong></p>
                     <p>${emisorNombre || 'Departamento Comercial'}</p>
                     ${emisorAreaComercial ? `<p>${emisorAreaComercial}</p>` : ''}
-                    ${emisorEmail ? `<p><a href="mailto:${emisorEmail}">${emisorEmail}</a></p>` : ''}
                 </div>
             </div>
 
             <div class="comments-section">
-                <h3>Comentarios</h3> 
-                <p><span class="label">COTIZACIÓN Nº:</span> ${numeroCotizacion || 'N/A'}</p>
-                ${comentariosAdicionales ? `<br><p style="white-space: pre-wrap;">${comentariosAdicionales}</p>` : ''}
+                <h3>Comentarios Adicionales</h3> 
+                ${comentariosAdicionales ? `<p style="white-space: pre-wrap;">${comentariosAdicionales}</p>` : '<p>No se ingresaron comentarios.</p>'}
             </div>
 
             <div class="items-table-container">
-                <h2>Productos y servicios</h2>
+                <h2>Resumen de Equipos Calculados</h2>
                 <table class="items">
                     <thead>
                         <tr>
-                            <th style="width:55%;">Artículo y descripción</th>
-                            <th style="width:10%; text-align:center;">Cantidad</th>
-                            <th style="width:17.5%; text-align:right;">Precio unitario</th>
-                            <th style="width:17.5%; text-align:right;">Total</th>
+                            <th style="width:100%;">Artículo y descripción</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -517,7 +503,7 @@ const generarHtmlParaPdf = (datos) => {
                 </table>
             </div>
 
-            <div class="totals-section">
+            ${/* <div class="totals-section">
                 <table class="totals-table">
                     <tbody>
                         <tr>
@@ -534,9 +520,9 @@ const generarHtmlParaPdf = (datos) => {
                         </tr>
                     </tbody>
                 </table>
-            </div>
+            </div> */ ''}
             
-            <div class="conditions-section">
+            ${/* <div class="conditions-section">
                 <h2>Condiciones de compra</h2>
                 <h4>1- Antecedentes Técnicos Generales.</h4>
                 <p>Los antecedentes técnicos de los productos y/o servicios cotizados, se encuentran en los documentos adjuntos a la presente cotización (si aplica).</p>
@@ -546,7 +532,7 @@ const generarHtmlParaPdf = (datos) => {
                 <p>El tiempo de entrega es estimativo y se confirmará con la Orden de Compra. La entrega se hace efectiva en bodega de ${miEmpresa.nombre}, o lugar a convenir.</p>
                 <h4>4- Garantía.</h4>
                 <p>El equipo se encuentra garantizado por un plazo de 12 meses por falla o defecto de construcción y/o material, no imputable al mal uso del equipo. Comprende piezas y partes, con la exclusión de aquellas que presenten desgaste natural por uso.</p>
-            </div>
+            </div> */ ''}
 
             <div class="footer-contact">
                 <p><strong>${miEmpresa.nombre}</strong></p>

@@ -83,7 +83,7 @@ export default function ConfiguracionPanel() {
     console.log('Enviando al backend:', payload);
 
     try {
-      const response = await fetch('/api/calculos-historial/guardar-y-exportar', {
+      const response = await fetch('/api/calculo-historial/guardar-y-exportar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -177,7 +177,7 @@ export default function ConfiguracionPanel() {
             </Box>
         ))}
         <Typography variant="body2" color="textSecondary" sx={{mt:1}}>
-            Total de equipos principales a cotizar: {calculosData.itemsParaCotizar.length}
+            Total de equipos principales: {calculosData.itemsParaCotizar.length}
         </Typography>
 
         {/* Botones de Acción */}
@@ -192,7 +192,7 @@ export default function ConfiguracionPanel() {
             onClick={handleGenerarPdf} 
             disabled={isLoading}
           >
-            {isLoading ? 'Generando PDF...' : 'Generar Cotización PDF'}
+            {isLoading ? 'Generando Informe...' : 'Generar Informe'}
           </Button>
         </Box>
       </Paper>

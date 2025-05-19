@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Loader2, AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Calculator, ListTree, DollarSign, CloudOff, FileText } from 'lucide-react';
+import { Loader2, AlertTriangle, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, Calculator, ListTree, DollarSign, CloudOff, FileText, Save } from 'lucide-react';
 import {
   Button, Typography, Paper, Box, Container, Alert,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, List, ListItem, ListItemText,
@@ -494,70 +494,77 @@ export default function ResultadosCalculoCostosPanel() {
     }
   }, [currentProfileData, anoActualGlobal]);
 
-  const handleCalcularYGuardar = async () => {
+  const handleCalcular = async () => {
     if (!currentProfileData) {
-      setSaveErrorMessage("Por favor, seleccione un perfil de costo primero.");
+      setErrorCarga("Por favor, seleccione un perfil de costo primero para calcular.");
       return;
     }
-    const lineasActualesParaCalculo = [...lineasCalculadas]; 
+    const lineasActualesParaCalculo = [...lineasCalculadas];
 
     if (!state?.productosConOpcionalesSeleccionados || state.productosConOpcionalesSeleccionados.length === 0 || lineasActualesParaCalculo.length === 0) {
-        setSaveErrorMessage("No hay productos para calcular y guardar.");
-        return;
+      setErrorCarga("No hay productos para calcular.");
+      return;
     }
 
-    setIsCalculating(true); 
-    setIsSaving(true); 
+    setIsCalculating(true);
     setSaveSuccessMessage(null);
     setSaveErrorMessage(null);
     setSavedCalculoId(null);
     setErrorCarga(null);
+    setLatestCalculatedResults(null); // Reset previous results before new calculation
 
     const nuevasLineasConDetalles = await realizarCalculoDetallado(lineasActualesParaCalculo);
 
     if (!nuevasLineasConDetalles) {
-      setIsCalculating(false); 
-      setIsSaving(false);
-      setSaveErrorMessage(errorCarga || "Falló la etapa de cálculo. No se guardó.");
+      // errorCarga should be set by realizarCalculoDetallado or its callers
+      setSaveErrorMessage(errorCarga || "Falló la etapa de cálculo."); 
+    } else {
+      setLineasCalculadas(nuevasLineasConDetalles);
+      const resultadosTransformados = transformarLineasParaConfiguracion(nuevasLineasConDetalles, currentProfileData.nombre_perfil);
+      setLatestCalculatedResults(resultadosTransformados);
+      setSaveSuccessMessage("Cálculo realizado con éxito. Puede proceder a guardar."); // Inform user
+    }
+    setIsCalculating(false);
+  };
+
+  const handleGuardar = async () => {
+    if (!currentProfileData) {
+      setSaveErrorMessage("No hay un perfil de costo activo para guardar.");
       return;
     }
-    
-    setLineasCalculadas(nuevasLineasConDetalles);
-
-    const resultadosParaGuardar = transformarLineasParaConfiguracion(nuevasLineasConDetalles, currentProfileData.nombre_perfil);
-    setLatestCalculatedResults(resultadosParaGuardar);
-
-    // TODO: Ajustar la obtención de cotizacionDetails. 
-    // Por ahora, usamos valores por defecto o derivados del perfil actual.
-    const cotizacionDetailsParaGuardar: CotizacionDetails = {
-        clienteNombre: null, // Anteriormente: state?.configuracionData?.clienteNombre || null,
-        emisorNombre: currentProfileData?.nombre_perfil || "Emisor Perfil Defecto", 
-        empresaQueCotiza: "Tu Empresa S.A.", // Anteriormente: state?.configuracionData?.empresaQueCotiza || "Empresa Por Defecto",
-        // referenciaDocumento: undefined, // Anteriormente: state?.configuracionData?.referenciaDocumento || undefined,
-    };
-    
-    const nombreReferenciaOpcional = `Cálculo auto ${new Date().toLocaleDateString()}`;
-
-
-    if (!state.productosConOpcionalesSeleccionados) {
-        setIsSaving(false);
-        setIsCalculating(false);
-        setSaveErrorMessage("Error interno: productosConOpcionalesSeleccionados es nulo.");
-        return;
+    if (!latestCalculatedResults) {
+      setSaveErrorMessage("No hay resultados de cálculo para guardar. Por favor, calcule primero.");
+      return;
+    }
+    if (!state?.productosConOpcionalesSeleccionados) {
+      setSaveErrorMessage("Error interno: la configuración de productos no está disponible para guardar.");
+      return;
     }
 
+    setIsSaving(true);
+    setSaveSuccessMessage(null);
+    setSaveErrorMessage(null);
+    setSavedCalculoId(null);
+    
+    const cotizacionDetailsParaGuardar: CotizacionDetails = {
+      clienteNombre: null,
+      emisorNombre: currentProfileData?.nombre_perfil || "Emisor Perfil Defecto",
+      empresaQueCotiza: "Tu Empresa S.A.",
+    };
+
+    const nombreReferenciaOpcional = `Cálculo auto ${new Date().toLocaleDateString()} - Perfil: ${currentProfileData.nombre_perfil}`;
+
     const payloadParaGuardar = {
-        itemsParaCotizar: state.productosConOpcionalesSeleccionados.map(item => ({ 
-          principal: item.principal,
-          opcionales: item.opcionales,
-        })),
-        resultadosCalculados: resultadosParaGuardar, 
-        cotizacionDetails: cotizacionDetailsParaGuardar,
-        nombreReferencia: nombreReferenciaOpcional,
-        // Añadiendo campos requeridos por GuardarCalculoPayload
-        selectedProfileId: currentProfileData?._id || "", // Añadido fallback
-        nombrePerfil: currentProfileData?.nombre_perfil || "Perfil No Especificado", // Añadido fallback
-        anoEnCursoGlobal: anoActualGlobal,
+      itemsParaCotizar: state.productosConOpcionalesSeleccionados.map(item => ({
+        principal: item.principal,
+        opcionales: item.opcionales,
+      })),
+      resultadosCalculados: latestCalculatedResults,
+      cotizacionDetails: cotizacionDetailsParaGuardar,
+      nombreReferencia: nombreReferenciaOpcional,
+      selectedProfileId: currentProfileData._id,
+      nombrePerfil: currentProfileData.nombre_perfil,
+      anoEnCursoGlobal: anoActualGlobal,
     };
 
     try {
@@ -565,14 +572,13 @@ export default function ResultadosCalculoCostosPanel() {
       const guardado: any = await guardarCalculoHistorial(payloadParaGuardar);
       
       setSaveSuccessMessage(guardado.message || "Cálculo guardado exitosamente!");
-      setSavedCalculoId(guardado.data?._id || null); 
+      setSavedCalculoId(guardado.data?._id || null);
       setSaveErrorMessage(null);
     } catch (error: any) {
       console.error("[ResultadosCalculoCostosPanel] Error al guardar cálculo:", error);
       setSaveErrorMessage(error.response?.data?.message || error.message || "Error al guardar el cálculo.");
       setSaveSuccessMessage(null);
     } finally {
-      setIsCalculating(false);
       setIsSaving(false);
     }
   };
@@ -769,11 +775,22 @@ export default function ResultadosCalculoCostosPanel() {
             color="primary"
             size="large"
             startIcon={<Calculator />}
-            onClick={handleCalcularYGuardar}
-            disabled={!currentProfileData || (lineasCalculadas && lineasCalculadas.length === 0) || isCalculating || isSaving}
-            sx={{ minWidth: '220px' }}
+            onClick={handleCalcular}
+            disabled={!currentProfileData || (lineasCalculadas && lineasCalculadas.length === 0) || isCalculating || isProfilesLoading}
+            sx={{ minWidth: '200px' }}
           >
-            {isCalculating && !isSaving ? "Calculando..." : (isSaving ? "Guardando..." : "Calcular y Guardar")}
+            {isCalculating ? "Calculando..." : "Calcular Precios"}
+          </Button>
+          <Button
+            variant="contained"
+            color="secondary"
+            size="large"
+            startIcon={<Save />}
+            onClick={handleGuardar}
+            disabled={!latestCalculatedResults || isSaving || isCalculating}
+            sx={{ minWidth: '200px' }}
+          >
+            {isSaving ? "Guardando..." : "Guardar Cálculo"}
           </Button>
           <Button
             variant="contained"
