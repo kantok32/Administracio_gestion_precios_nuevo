@@ -53,11 +53,11 @@ const AnimatedRoutes = () => {
   const location = useLocation();
   return (
     <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}> {/* Cambiado a location.pathname para estabilidad de key */}
+      <Routes location={location} key={location.pathname}>
         <Route path="/login" element={<AnimatedPage><LoginPage /></AnimatedPage>} />
         <Route path="/" element={<App />}>
-          <Route index element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />
-          <Route path="equipos" element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />
+          <Route index element={<EquiposPanel />} />
+          <Route path="equipos" element={<EquiposPanel />} />
           <Route path="admin" element={<AdminPanel />}>
             <Route index element={<AnimatedPage><PerfilesPanel /></AnimatedPage>} />
             <Route path="costos" element={<AnimatedPage><CostosAdminPanel /></AnimatedPage>} />
@@ -71,7 +71,7 @@ const AnimatedRoutes = () => {
           <Route path="configuracion-panel" element={<AnimatedPage><ConfiguracionPanel /></AnimatedPage>} />
           <Route path="configurar-opcionales" element={<AnimatedPage><ConfigurarOpcionalesPanel /></AnimatedPage>} />
           <Route path="resumen-carga" element={<AnimatedPage><ResumenCargaPanel /></AnimatedPage>} />
-          <Route path="historial" element={<AnimatedPage><HistorialPage /></AnimatedPage>} />
+          <Route path="historial" element={<HistorialPage />} />
           <Route path="historial/:id" element={<AnimatedPage><HistorialDetallePage /></AnimatedPage>} />
         </Route>
       </Routes>

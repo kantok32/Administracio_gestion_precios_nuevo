@@ -4,7 +4,7 @@ import {
   Container, Typography, Paper, CircularProgress, Alert, Box, Button, 
   Grid, List, ListItem, ListItemText, Divider, Chip, IconButton, Collapse
 } from '@mui/material';
-import { ArrowBack as ArrowBackIcon, ExpandMore as ExpandMoreIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
+import { ArrowBack as ArrowBackIcon, ExpandMore as ExpandMoreIcon, ChevronRight as ChevronRightIcon, Settings as SettingsIcon } from '@mui/icons-material';
 import { getCalculoHistorialById, HistorialCalculoItem } from '../services/calculoHistorialService';
 import { CostoPerfilData } from '../types'; // Asumiendo que podrías necesitarla para RenderResultDetails
 import { CalculationResult } from '../types/calculoTypes'; // Para RenderResultDetails
@@ -140,6 +140,31 @@ const HistorialDetallePage: React.FC = () => {
     setExpandedSections(prev => ({ ...prev, [sectionId]: !prev[sectionId] }));
   };
 
+  const handleConfigure = () => {
+    if (detalle && detalle.itemsParaCotizar && detalle.itemsParaCotizar.length > 0) {
+      const firstItemBundle = detalle.itemsParaCotizar[0];
+      
+      if (firstItemBundle.principal && firstItemBundle.principal.codigo_producto) {
+        const mainProductCodigo = firstItemBundle.principal.codigo_producto;
+        const selectedOptionalCodigos = firstItemBundle.opcionales?.map((op: ProductoHistorialItem) => op.codigo_producto).filter(Boolean) as string[] || [];
+
+        navigate('/configurar-opcionales', {
+          state: {
+            fromHistory: true,
+            mainProductCodigo: mainProductCodigo,
+            selectedOptionalCodigos: selectedOptionalCodigos,
+          }
+        });
+      } else {
+        console.error("El producto principal o su código no se encontró en el primer item del historial.");
+        setError("No se pudo cargar la configuración: falta el producto principal en el historial.");
+      }
+    } else {
+      console.error("No hay items en el historial para configurar.");
+      setError("No hay items en el historial para configurar.");
+    }
+  };
+
   if (loading) {
     return <Container sx={{ textAlign: 'center', mt: 5 }}><CircularProgress /></Container>;
   }
@@ -154,9 +179,21 @@ const HistorialDetallePage: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Button startIcon={<ArrowBackIcon />} component={RouterLink} to="/historial" sx={{ mb: 2 }}>
-        Volver al Historial
-      </Button>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Button startIcon={<ArrowBackIcon />} component={RouterLink} to="/historial">
+          Volver al Historial
+        </Button>
+        {detalle && detalle.itemsParaCotizar && detalle.itemsParaCotizar.length > 0 && (
+          <Button 
+            variant="contained" 
+            color="secondary" 
+            startIcon={<SettingsIcon />} 
+            onClick={handleConfigure}
+          >
+            Configurar este Cálculo
+          </Button>
+        )}
+      </Box>
       <Paper sx={{ p: 3 }}>
         <Typography variant="h4" component="h1" gutterBottom>
           Detalle del Cálculo #{detalle.numeroConfiguracion || detalle._id}
@@ -190,7 +227,7 @@ const HistorialDetallePage: React.FC = () => {
         
         {detalle.itemsParaCotizar?.map((item: ItemParaCotizarHistorial, index: number) => {
           const principalId = `principal-${item.principal?.codigo_producto}-${index}`;
-          const isPrincipalExpanded = expandedSections[principalId] !== undefined ? expandedSections[principalId] : true;
+          const isPrincipalExpanded = expandedSections[principalId] !== undefined ? expandedSections[principalId] : false;
 
           return (
             <Box key={index} sx={{ mb: 3 }}>
@@ -215,7 +252,7 @@ const HistorialDetallePage: React.FC = () => {
                     <Typography variant="subtitle1" gutterBottom sx={{ fontWeight: 'medium' }}>Opcionales:</Typography>
                     {item.opcionales.map((opcional: ProductoHistorialItem, opcIndex: number) => {
                       const opcionalId = `opcional-${opcional?.codigo_producto}-${index}-${opcIndex}`;
-                      const isOpcionalExpanded = expandedSections[opcionalId] !== undefined ? expandedSections[opcionalId] : true;
+                      const isOpcionalExpanded = expandedSections[opcionalId] !== undefined ? expandedSections[opcionalId] : false;
 
                       return (
                         <Box key={opcIndex} sx={{mb:1, borderLeft: '3px solid #e0e0e0', pl:1.5, pt:1, pb:0.5 }}>

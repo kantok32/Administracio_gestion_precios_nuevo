@@ -23,16 +23,16 @@ router.get('/', productController.getCachedProducts); // Lista todos los product
 // Es probable que createProductController sea parte de productController.js y no necesite el alias productoCtrl
 
 // --- NUEVA RUTA para obtener un producto por Codigo_Producto ---
-router.get('/code/:codigoProducto', productController.getProductByCodeController);
+router.get('/code/:codigoProducto', productController.getProductByCode);
 
 // --- NUEVA RUTA para actualizar un producto por Codigo_Producto ---
-router.put('/code/:codigoProducto', productController.updateProductController);
+router.put('/code/:codigoProducto', productController.updateProduct);
 
 // --- NUEVA RUTA para actualizar el estado descontinuado de un producto ---
 router.put('/code/:codigoProducto/toggle-discontinued', productController.toggleProductDiscontinuedStatus);
 
 // --- NUEVA RUTA para eliminar un producto por Codigo_Producto ---
-router.delete('/code/:codigoProducto', productController.deleteProductController);
+// router.delete('/code/:codigoProducto', productController.deleteProductController); // Temporarily commented out as handler is missing
 
 router.get('/filter', productController.fetchFilteredProductsController);
 router.get('/cache/all', productController.getAllProductsAndCache);
@@ -87,13 +87,13 @@ router.get('/download-specifications-template', (req, res) => {
 // router.post('/upload-bulk', upload.single('archivoExcel'), productoCtrl.uploadBulkProducts); 
 
 // Ruta para la carga PLANA de nuevos equipos (Plantilla General de Equipos)
-router.post('/upload-plain', upload.single('archivoExcelPlain'), productController.uploadBulkProductsPlain);
+// router.post('/upload-plain', upload.single('archivoExcelPlain'), productController.uploadBulkProductsPlain); // Commented out
 
 // Ruta para la carga MATRICIAL general de productos (si es un formato diferente al de especificaciones)
-router.post('/upload-matrix', upload.single('archivoExcelMatrix'), productController.uploadBulkProductsMatrix); // Llama a uploadBulkProductsMatrixDetailed
+// router.post('/upload-matrix', upload.single('archivoExcelMatrix'), productController.uploadBulkProductsMatrix); // Commented out 
 
 // Nueva ruta para actualizar especificaciones técnicas (Formato Matricial de Especificaciones)
-router.post('/upload-specifications', upload.single('archivoEspecificaciones'), productController.uploadTechnicalSpecifications);
+// router.post('/upload-specifications', upload.single('archivoEspecificaciones'), productController.uploadTechnicalSpecifications); // Commented out
 
 // <<<--- Fin de la sección de carga masiva --- >>>
 

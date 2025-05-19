@@ -22,7 +22,7 @@
     "es_opcional": false,
     "peso_kg": 50,
     "producto": "Chipeadora PTO",
-    "updatedAt": "2025-05-19T16:08:16.790Z",
+    "updatedAt": "2025-05-19T20:18:32.042Z",
     "fecha_cotizacion": "2023",
     "especificaciones_tecnicas": {
       "DIMENSIONES": {
@@ -109,6 +109,7 @@
         "NORMATIVA DE CIRCULACIÓN VIAL": "Mediante calcomanías distribuidas sobre la máquina."
       }
     },
+    "descontinuado": true,
     "codigo_producto": "61134",
     "nombre_del_producto": "Chipeadora PTO A141XL - Chasis 25km/h - Abertura 410 x 300mm",
     "Modelo": "A141XL - Chasis 25km/h",

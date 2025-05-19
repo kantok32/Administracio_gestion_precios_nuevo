@@ -6,6 +6,7 @@ const axios = require('axios');
 const mongoose = require('mongoose');
 const xlsx = require('xlsx');
 const Producto = require('../models/Producto.js');
+const asyncHandler = require('express-async-handler');
 
 let cachedProducts = [];
 let currencyCache = {
@@ -711,44 +712,24 @@ const testGetBaseProductsFromDBController = async (req, res) => {
   }
 };
 
-// --- NUEVO: Handler para obtener un producto por Codigo_Producto ---
-// @desc    Get a single product by its Codigo_Producto
-// @route   GET /api/products/code/:codigoProducto
+// @desc    Fetch a single product by its Codigo_Producto
+// @route   GET /api/products/bycode/:codigo
 // @access  Public
-const getProductByCodeController = async (req, res) => {
-  try {
-    const { codigoProducto } = req.params;
-    if (!codigoProducto) {
-      return res.status(400).json({ message: 'El parámetro codigoProducto es requerido.' });
-    }
+const getProductByCode = asyncHandler(async (req, res) => {
+  const producto = await Producto.findOne({ Codigo_Producto: req.params.codigo });
 
-    console.log(`[Controller] Attempting to fetch product by Codigo_Producto: ${codigoProducto}`);
-    const product = await getProductByCodeFromDB(codigoProducto);
-
-    if (!product) {
-      return res.status(404).json({ message: `Producto con Codigo_Producto ${codigoProducto} no encontrado.` });
-    }
-
-    res.status(200).json({
-      message: 'Producto encontrado exitosamente.',
-      data: product
-    });
-
-  } catch (error) {
-    console.error(`[Controller] Error fetching product by Codigo_Producto ${req.params.codigoProducto}:`, error);
-    res.status(500).json({ 
-      message: 'Error al obtener el producto.',
-      error: error.message 
-    });
+  if (producto) {
+    res.json(producto);
+  } else {
+    res.status(404);
+    throw new Error('Producto no encontrado');
   }
-};
+});
 
-// --- NUEVO: Handler para actualizar un producto por Codigo_Producto ---
-// @desc    Update a product by its Codigo_Producto
-// @route   PUT /api/products/code/:codigoProducto
-// @access  Public (o Private)
-const updateProductController = async (req, res) => {
-  try {
+// @desc    Update a product (e.g., mark as descontinuado)
+// @route   PUT /api/products/:id (or /api/products/bycode/:codigo if preferred)
+// @access  Private/Admin
+const updateProduct = asyncHandler(async (req, res) => {
     const { codigoProducto } = req.params;
     const updateData = req.body;
 
@@ -780,612 +761,59 @@ const updateProductController = async (req, res) => {
       message: 'Producto actualizado exitosamente y caché refrescado.',
       data: updatedProduct
     });
+});
 
-  } catch (error) {
-    console.error(`[Controller] Error updating product with Codigo_Producto ${req.params.codigoProducto}:`, error);
-    res.status(500).json({ 
-      message: 'Error al actualizar el producto.',
-      error: error.message 
-    });
-  }
-};
+// @desc    Get distinct categories
+// @route   GET /api/products/categories
+// @access  Public
+const getCategories = asyncHandler(async (req, res) => {
+  // ... existing getCategories code ...
+});
 
-// --- NUEVO: Handler para eliminar un producto por Codigo_Producto ---
-// @desc    Delete a product by its Codigo_Producto
-// @route   DELETE /api/products/code/:codigoProducto
-// @access  Public (o Private)
-const deleteProductController = async (req, res) => {
-  try {
-    const { codigoProducto } = req.params;
-
-    if (!codigoProducto) {
-      return res.status(400).json({ message: 'El parámetro codigoProducto es requerido.' });
-    }
-
-    console.log(`[Controller] Attempting to delete product with Codigo_Producto: ${codigoProducto}`);
-    const wasDeleted = await deleteProductFromDB(codigoProducto);
-
-    if (!wasDeleted) {
-      return res.status(404).json({ message: `Producto con Codigo_Producto ${codigoProducto} no encontrado para eliminar.` });
-    }
-
-    // Actualizar caché después de la eliminación
-    console.log('Product deleted, attempting to refresh cache...');
-    const productsFromDB = await fetchBaseProductsFromDB();
-    cachedProducts = productsFromDB;
-    saveCacheToDisk();
-    console.log('Cache refreshed after product deletion.');
-
-    res.status(200).json({
-      message: `Producto con Codigo_Producto ${codigoProducto} eliminado exitosamente y caché refrescado.`
-    });
-
-  } catch (error) {
-    console.error(`[Controller] Error deleting product with Codigo_Producto ${req.params.codigoProducto}:`, error);
-    res.status(500).json({ 
-      message: 'Error al eliminar el producto.',
-      error: error.message 
-    });
-  }
-};
-
-// Añadir las funciones de carga de Excel que faltaban
-const uploadTechnicalSpecifications = async (req, res) => {
-  console.log('[Bulk Upload Specs - New Format] Request received.');
-  if (!req.file) {
-    return res.status(400).json({ message: 'No se subió ningún archivo.' });
-  }
-  console.log(`[Bulk Upload Specs - New Format] Processing file: ${req.file.originalname}`);
-
-  const summary = {
-    totalProductsInFile: 0,
-    productsForUpdateAttempt: 0,
-    productsSuccessfullyUpdated: 0,
-    productsNotFound: [],
-    productsWithDbErrors: [],
-    parseErrors: [] 
-  };
-
-  try {
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const dataAoA = xlsx.utils.sheet_to_json(worksheet, { header: 1, defval: null });
-
-    if (!dataAoA || dataAoA.length < 3) { // Mínimo: Fila Códigos, Fila Modelos, Fila 1 de Spec
-      summary.parseErrors.push({ general: 'El archivo no contiene suficientes filas (mínimo 3: Códigos, Modelos, 1 de Specs).' });
-      return res.status(400).json({ message: 'El archivo no contiene suficientes datos o estructura no válida.', summary });
-    }
-
-    // --- 1. Extraer Códigos de Producto y Modelos --- 
-    const productCodesRow = dataAoA[0]; // Fila 1 del Excel
-    const modelsRow = dataAoA[1];     // Fila 2 del Excel
-
-    if (!productCodesRow || !modelsRow) {
-      summary.parseErrors.push({ general: 'Faltan las filas de cabecera para Códigos de Producto o Modelos.' });
-      return res.status(400).json({ message: 'Faltan filas de cabecera esenciales.', summary });
-    }
-
-    // Validar etiquetas de cabecera (opcional pero bueno para robustez)
-    // if (String(productCodesRow[0]).trim().toLowerCase() !== 'código fabricante') { ... error ... }
-    // if (String(modelsRow[0]).trim().toLowerCase() !== 'modelo') { ... error ... }
-
-    const productHeaders = []; // { codigo: 'XYZ', modelo: 'ABC', columnIndex: 1 }
-    for (let j = 1; j < productCodesRow.length; j++) { // Empezar desde columna B (índice 1)
-      const code = productCodesRow[j] ? String(productCodesRow[j]).trim() : null;
-      const model = modelsRow[j] ? String(modelsRow[j]).trim() : null;
-      if (code) {
-        productHeaders.push({ codigo: code, modelo: model, columnIndex: j });
-      } else if (j > 1 && (productCodesRow[j-1] || modelsRow[j-1])) { // Si la columna anterior tenía datos, pero esta no tiene código, es un hueco.
-         console.warn(`[Bulk Upload Specs - New Format] Columna ${j+1} sin Código Producto, pero con posible modelo o specs. Se ignorará.`);
-      }
-    }
-
-    summary.totalProductsInFile = productHeaders.length;
-    if (productHeaders.length === 0) {
-      summary.parseErrors.push({ general: 'No se encontraron Códigos de Producto en la primera fila (a partir de la columna B).' });
-      return res.status(400).json({ message: 'No se encontraron códigos de producto en la cabecera.', summary });
-    }
-
-    console.log(`[Bulk Upload Specs - New Format] Productos en cabecera: ${productHeaders.map(p => p.codigo).join(', ')}`);
-
-    // --- 2. Procesar Especificaciones --- 
-    const updatesByProduct = {}; // { 'CODIGO1': { modelo: 'M1', especificaciones_tecnicas: {...} }, ... }
-
-    productHeaders.forEach(p => {
-      updatesByProduct[p.codigo] = { 
-        modelo: p.modelo, // Asignar modelo desde la fila de modelos
-        especificaciones_tecnicas: {} 
-      };
-    });
-
-    let currentSectionKey = null;
-    for (let i = 2; i < dataAoA.length; i++) { // Empezar desde Fila 3 del Excel (índice 2)
-      const currentRow = dataAoA[i];
-      if (!currentRow || currentRow.length === 0 || currentRow[0] === null || String(currentRow[0]).trim() === '') {
-        currentSectionKey = null; // Resetear sección en fila vacía o sin nombre de spec
-        continue;
-      }
-
-      const specName = String(currentRow[0]).trim();
-
-      // Heurística simple para detectar secciones: TODO EN MAYÚSCULAS y sin valores en las celdas de producto para esa fila
-      let isSection = specName === specName.toUpperCase();
-      if (isSection) {
-        let sectionHasValues = false;
-        for (const pHeader of productHeaders) {
-          if (currentRow[pHeader.columnIndex] !== null && String(currentRow[pHeader.columnIndex]).trim() !== '') {
-            sectionHasValues = true;
-            break;
-          }
-        }
-        if (sectionHasValues) isSection = false; // Si tiene valores, no es solo una sección
-      }
-
-      if (isSection) {
-        currentSectionKey = specName;
-        // Crear la sección en todos los productos si aún no existe
-        productHeaders.forEach(pHeader => {
-          if (!updatesByProduct[pHeader.codigo].especificaciones_tecnicas[currentSectionKey]) {
-            updatesByProduct[pHeader.codigo].especificaciones_tecnicas[currentSectionKey] = {};
-          }
-        });
-        continue; // Pasar a la siguiente fila
-      }
-
-      // Es una especificación normal, asignar valores
-      for (const pHeader of productHeaders) {
-        const productData = updatesByProduct[pHeader.codigo];
-        const specValue = currentRow[pHeader.columnIndex] !== null ? String(currentRow[pHeader.columnIndex]).trim() : null;
-
-        if (specValue !== null) {
-          if (currentSectionKey) {
-            if (!productData.especificaciones_tecnicas[currentSectionKey]) { // Asegurar que la sección existe
-                 productData.especificaciones_tecnicas[currentSectionKey] = {};
-            }
-            productData.especificaciones_tecnicas[currentSectionKey][specName] = specValue;
-          } else {
-            productData.especificaciones_tecnicas[specName] = specValue;
-          }
-        }
-      }
-    }
-    
-    console.log('[Bulk Upload Specs - New Format] Datos parseados:', JSON.stringify(updatesByProduct, null, 2));
-    summary.productsForUpdateAttempt = Object.keys(updatesByProduct).length;
-
-    // --- 3. Construir y Ejecutar Operaciones de DB --- 
-    const operations = [];
-    for (const codigoProducto of Object.keys(updatesByProduct)) {
-      const updatePayload = updatesByProduct[codigoProducto];
-      let fieldsToUpdate = {};
-
-      // ELIMINADO/COMENTADO: No actualizaremos el modelo desde la carga de especificaciones.
-      /*
-      if (updatePayload.modelo !== null && updatePayload.modelo !== '') {
-        fieldsToUpdate['caracteristicas.modelo'] = updatePayload.modelo;
-      }
-      */
-
-      // Limpiar especificaciones_tecnicas de secciones vacías o specs vacías
-      Object.keys(updatePayload.especificaciones_tecnicas).forEach(key => {
-        if (typeof updatePayload.especificaciones_tecnicas[key] === 'object') {
-          Object.keys(updatePayload.especificaciones_tecnicas[key]).forEach(subKey => {
-            if (updatePayload.especificaciones_tecnicas[key][subKey] === null || updatePayload.especificaciones_tecnicas[key][subKey] === '') {
-              delete updatePayload.especificaciones_tecnicas[key][subKey];
-            }
-          });
-          if (Object.keys(updatePayload.especificaciones_tecnicas[key]).length === 0) {
-            delete updatePayload.especificaciones_tecnicas[key];
-          }
-        } else if (updatePayload.especificaciones_tecnicas[key] === null || updatePayload.especificaciones_tecnicas[key] === '') {
-          delete updatePayload.especificaciones_tecnicas[key];
-        }
-      });
-
-      if (Object.keys(updatePayload.especificaciones_tecnicas).length > 0) {
-        fieldsToUpdate['especificaciones_tecnicas'] = updatePayload.especificaciones_tecnicas;
-      }
-
-      if (Object.keys(fieldsToUpdate).length > 0) {
-          const productoExistente = await Producto.findOne({ Codigo_Producto: codigoProducto });
-          if (productoExistente) {
-            operations.push({
-                updateOne: {
-                    filter: { Codigo_Producto: codigoProducto },
-                    update: { $set: fieldsToUpdate }
-                }
-            });
-          } else {
-            summary.productsNotFound.push(codigoProducto);
-          }
-      } else {
-          console.log(`[Bulk Upload Specs - New Format] Producto ${codigoProducto} sin especificaciones válidas para actualizar.`);
-      }
-    }
-
-    if (operations.length > 0) {
-      const result = await Producto.bulkWrite(operations, { ordered: false });
-      summary.productsSuccessfullyUpdated = result.modifiedCount || 0;
-      if (result.hasWriteErrors()) {
-        result.getWriteErrors().forEach(err => {
-          const codigo = err.err.op?.updateOne?.filter?.Codigo_Producto || 'Desconocido';
-          summary.productsWithDbErrors.push({ codigo, message: err.errmsg, details: `Código de error: ${err.code}` });
-        });
-      }
-    } else {
-        console.log('[Bulk Upload Specs - New Format] No hay operaciones de DB para ejecutar.')
-    }
-
-    if (summary.productsSuccessfullyUpdated > 0) {
-        console.log('[Bulk Upload Specs - New Format] Products updated, attempting to refresh cache...');
-        try { await initializeProductCache(); console.log('[Bulk Upload Specs - New Format] Cache refreshed.'); }
-        catch (cacheError) { 
-            console.error('[Bulk Upload Specs - New Format] Error refreshing cache:', cacheError);
-            summary.parseErrors.push({ general: 'Error al refrescar caché: ' + cacheError.message });
-        }
-    }
-
-    const status = (summary.productsNotFound.length > 0 || summary.productsWithDbErrors.length > 0 || summary.parseErrors.length > 0) ? 207 : 200;
-    let message = `Carga completada. Actualizados: ${summary.productsSuccessfullyUpdated}.`;
-    if(summary.productsNotFound.length > 0) message += ` No encontrados: ${summary.productsNotFound.length}.`;
-    if(summary.productsWithDbErrors.length > 0) message += ` Errores DB: ${summary.productsWithDbErrors.length}.`;
-    if(summary.parseErrors.length > 0) message += ` Errores de parseo: ${summary.parseErrors.length}.`;
-    
-    console.log('[Bulk Upload Specs - New Format] Final Summary:', JSON.stringify(summary, null, 2));
-    res.status(status).json({ message, summary });
-
-  } catch (error) {
-    console.error('[Bulk Upload Specs - New Format] General error processing uploaded file:', error);
-    summary.parseErrors.push({ general: error.message, stack: error.stack });
-    res.status(500).json({ 
-        message: 'Error interno del servidor al procesar el archivo (nuevo formato especificaciones).', 
-        summary, 
-        error: error.message 
-    });
-  }
-};
-
-const uploadBulkProductsMatrixDetailed = async (req, res) => {
-    console.log('[Bulk Upload Matrix] Request received.');
-    // ... el resto de la implementación larga de la función matricial ...
-};
-
-// Helper para normalizar cabeceras (opcional pero recomendado)
-const normalizeHeader = (header) => {
-  if (!header) return '';
-  // Convertir a string, trim, lowerCase, reemplazar espacios y caracteres especiales por guion bajo
-  return header.toString().trim().toLowerCase().replace(/\s+/g, '_').replace(/[^a-z0-9_]/gi, '');
-};
-
-// Mapeo de cabeceras normalizadas a rutas del modelo Producto
-// Basado en excelTemplateHeaders del frontend y la estructura inferida del modelo Producto
-const headerToModelPath = {
-  'codigo_producto': { path: 'Codigo_Producto', type: 'string', required: true },
-  'producto': { path: 'producto', type: 'string' },
-  'nombre_producto': { path: 'caracteristicas.nombre_del_producto', type: 'string' },
-  'descripcion': { path: 'descripcion', type: 'string' },
-  'modelo': { path: 'caracteristicas.modelo', type: 'string', required: true },
-  'categoria': { path: 'categoria', type: 'string' },
-  'fecha_cotizacion': { path: 'datos_contables.fecha_cotizacion', type: 'string' },
-  'fecha_cotizacion_': { path: 'datos_contables.fecha_cotizacion', type: 'string' },
-  'costo_fabrica': { path: 'datos_contables.costo_fabrica', type: 'number' },
-  'largo_mm': { path: 'dimensiones.largo_mm', type: 'number' },
-  'ancho_mm': { path: 'dimensiones.ancho_mm', type: 'number' },
-  'alto_mm': { path: 'dimensiones.alto_mm', type: 'number' },
-  'peso_kg': { path: 'peso_kg', type: 'number', required: true },
-  'equipo_u_opcional': { path: 'es_opcional', type: 'boolean' },
-  'detalle_adicional_1': { path: 'especificaciones_tecnicas.detalle_adicional_1', type: 'string' },
-  'detalle_adicional_2': { path: 'especificaciones_tecnicas.detalle_adicional_2', type: 'string' },
-  'detalle_adicional_3': { path: 'especificaciones_tecnicas.detalle_adicional_3', type: 'string' },
-  'combustible': { path: 'especificaciones_tecnicas.combustible', type: 'string' },
-  'hp': { path: 'especificaciones_tecnicas.hp', type: 'string' },
-  'diametro_mm': { path: 'especificaciones_tecnicas.diametro_mm', type: 'string' },
-  'movilidad': { path: 'especificaciones_tecnicas.movilidad', type: 'string' },
-  'rotacion': { path: 'especificaciones_tecnicas.rotacion', type: 'string' },
-  'modelo_compatible_manual': { path: 'especificaciones_tecnicas.modelo_compatible_manual', type: 'string' },
-  'numero_caracteristicas_tecnicas': { path: 'especificaciones_tecnicas.numero_caracteristicas_tecnicas', type: 'string' },
-  'descripcion_detallada': { path: 'especificaciones_tecnicas.descripcion_detallada', type: 'string' },
-  'elemento_corte': { path: 'especificaciones_tecnicas.elemento_corte', type: 'string' },
-  'garganta_alimentacion_mm': { path: 'especificaciones_tecnicas.garganta_alimentacion_mm', type: 'string' },
-  'tipo_motor': { path: 'especificaciones_tecnicas.tipo_motor', type: 'string' },
-  'potencia_motor_kw_hp': { path: 'especificaciones_tecnicas.potencia_motor_kw_hp', type: 'string' },
-  'tipo_enganche': { path: 'especificaciones_tecnicas.tipo_enganche', type: 'string' },
-  'tipo_chasis': { path: 'especificaciones_tecnicas.tipo_chasis', type: 'string' },
-  'capacidad_chasis_velocidad': { path: 'especificaciones_tecnicas.capacidad_chasis_velocidad', type: 'string' },
-  'tipo_producto_detalles': { path: 'especificaciones_tecnicas.tipo_producto_detalles', type: 'string' },
-  'clasificacion_easysystems': { path: 'clasificacion_easysystems', type: 'string' },
-  'codigo_ea': { path: 'codigo_ea', type: 'string' },
-  'proveedor': { path: 'proveedor', type: 'string' },
-  'procedencia': { path: 'procedencia', type: 'string' },
-  'familia': { path: 'familia', type: 'string' },
-  'nombre_comercial': { path: 'nombre_comercial', type: 'string' },
-};
-
-// Helper para parsear valores
-const parseValue = (value, type) => {
-  if (value === null || value === undefined || String(value).trim() === '') {
-    return undefined;
-  }
-  switch (type) {
-    case 'string':
-      return String(value).trim();
-    case 'number':
-      const numStr = String(value).replace(/\./g, '').replace(',', '.');
-      const num = parseFloat(numStr);
-      return isNaN(num) ? undefined : num;
-    case 'boolean':
-      const lowerVal = String(value).trim().toLowerCase();
-      if (['true', 'verdadero', 'si', '1', 'yes'].includes(lowerVal)) return true;
-      if (['false', 'falso', 'no', '0'].includes(lowerVal)) return false;
-      return undefined;
-    case 'date':
-      if (value instanceof Date) { // Si cellDates:true funcionó
-        return value;
-      }
-      if (typeof value === 'number') { // Fecha de Excel (número de serie)
-        const d = xlsx.SSF.parse_date_code(value); // Usar xlsx (minúscula) como se importó
-        if (d) return new Date(Date.UTC(d.y, d.m - 1, d.d, d.H, d.M, d.S));
-      }
-      const dateStr = String(value).trim();
-      if (/^\d{4}$/.test(dateStr)) {
-        return new Date(Date.UTC(parseInt(dateStr), 0, 1));
-      }
-      const parsedDate = Date.parse(dateStr);
-      return isNaN(parsedDate) ? undefined : new Date(parsedDate);
-    default:
-      return String(value).trim();
-  }
-};
-
-// Helper para setear valor en un path anidado
-function setValueByPath(obj, path, value) {
-  const keys = path.split('.');
-  let current = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    if (!current[keys[i]] || typeof current[keys[i]] !== 'object') {
-      current[keys[i]] = {};
-    }
-    current = current[keys[i]];
-  }
-  if (value !== undefined) {
-    current[keys[keys.length - 1]] = value;
-  } else { // Si el valor es undefined, asegurar que la ruta exista para evitar errores, pero no setear el valor final
-    // Esto es útil si se quiere que Mongoose aplique defaults para campos no provistos explícitamente.
-    // Opcionalmente, se podría decidir eliminar el campo si es undefined.
-     current[keys[keys.length - 1]] = undefined; 
-  }
-}
-
-const uploadBulkProductsPlain = async (req, res) => {
-  console.log('[Bulk Upload Plain] Request received.');
-  if (!req.file) {
-    return res.status(400).json({ message: 'No se subió ningún archivo.' });
-  }
-  console.log(`[Bulk Upload Plain] Processing file: ${req.file.originalname}`);
-
-  const summary = {
-    totalRowsInExcel: 0,
-    rowsProcessed: 0,
-    inserted: 0,
-    updated: 0,
-    rowsWithErrors: 0,
-    errors: []
-  };
-
-  try {
-    const workbook = xlsx.read(req.file.buffer, { type: 'buffer', cellDates: true });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const jsonData = xlsx.utils.sheet_to_json(worksheet, { defval: undefined }); // undefined para celdas vacias
-
-    summary.totalRowsInExcel = jsonData.length;
-    if (jsonData.length === 0) {
-      return res.status(400).json({ message: 'El archivo Excel está vacío o no tiene datos procesables.' });
-    }
-
-    const operations = [];
-
-    for (let i = 0; i < jsonData.length; i++) {
-      const row = jsonData[i];
-      summary.rowsProcessed++;
-      let productData = {};
-      let currentProductCodigo = null;
-      let rowErrorMessages = [];
-
-      const excelHeaders = Object.keys(row);
-
-      for (const excelHeader of excelHeaders) {
-        const normalizedHeaderKey = normalizeHeader(excelHeader);
-        const mapping = headerToModelPath[normalizedHeaderKey];
-        
-        if (mapping) {
-          const rawValue = row[excelHeader];
-          const parsedVal = parseValue(rawValue, mapping.type);
-
-          if (mapping.required && (parsedVal === undefined || String(parsedVal).trim() === '')) {
-            rowErrorMessages.push(`Campo obligatorio '${excelHeader}' está vacío o es inválido.`);
-          }
-          
-          setValueByPath(productData, mapping.path, parsedVal);
-
-          if (mapping.path === 'Codigo_Producto') {
-            currentProductCodigo = parsedVal;
-          }
-        }
-      }
-      
-      if (!currentProductCodigo) {
-        rowErrorMessages.push('Codigo_Producto no encontrado o inválido en la fila.');
-      }
-
-      if (rowErrorMessages.length > 0) {
-        summary.rowsWithErrors++;
-        summary.errors.push({ 
-          rowNumberExcel: i + 2, 
-          codigoProducto: currentProductCodigo || 'N/A',
-          messages: rowErrorMessages
-        });
-        continue; 
-      }
-      
-      // <<< INICIO: Lógica para manejar "opcional" en nombre_del_producto >>>
-      if (productData.caracteristicas && 
-          typeof productData.caracteristicas.nombre_del_producto === 'string' &&
-          productData.caracteristicas.nombre_del_producto.toLowerCase().includes('opcional')) {
-        
-        // Quitar "opcional" del nombre del producto, insensible a mayúsculas/minúsculas, y limpiar espacios
-        productData.caracteristicas.nombre_del_producto = productData.caracteristicas.nombre_del_producto
-          .replace(/opcional/gi, '') // Elimina "opcional" (case-insensitive)
-          .replace(/\s\s+/g, ' ')    // Reemplaza múltiples espacios con uno solo
-          .trim();                   // Elimina espacios al inicio y al final
-
-        productData.tipo = 'opcional';
-      }
-      // <<< FIN: Lógica para manejar "opcional" en nombre_del_producto >>>
-      
-      // Limpieza de campos undefined explícitos para que Mongoose aplique defaults si existen
-      // o para evitar enviar { campo: undefined }
-      function removeUndefinedFields(obj) {
-        if (typeof obj !== 'object' || obj === null) return obj;
-        Object.keys(obj).forEach(key => {
-          if (obj[key] === undefined) {
-            delete obj[key];
-          } else if (typeof obj[key] === 'object') {
-            removeUndefinedFields(obj[key]);
-            if (Object.keys(obj[key]).length === 0) {
-              delete obj[key]; // Eliminar sub-objetos vacíos
-            }
-          }
-        });
-        return obj;
-      }
-      productData = removeUndefinedFields(productData);
-
-      // <<< DEBUG: Mostrar el objeto productData que se enviará a MongoDB >>>
-      if (jsonData.length === 1) { // Solo loguear si es una carga de un solo item para no inundar la consola
-          console.log('\n[DEBUG] Objeto productData construido para MongoDB (fila única):');
-          console.log(JSON.stringify(productData, null, 2));
-          console.log('--- Fin DEBUG ---\n');
-      }
-      // <<< Fin DEBUG >>>
-
-      operations.push({
-        updateOne: {
-          filter: { Codigo_Producto: currentProductCodigo },
-          update: { $set: productData },
-          upsert: true
-        }
-      });
-    }
-
-    if (operations.length > 0) {
-      const result = await Producto.bulkWrite(operations, { ordered: false });
-      summary.inserted = result.upsertedCount || 0;
-      summary.updated = result.modifiedCount || 0;
-      
-      if (result.hasWriteErrors()) {
-        result.getWriteErrors().forEach(err => {
-          const codigo = err.err.op?.updateOne?.filter?.Codigo_Producto || 'Desconocido';
-          summary.rowsWithErrors++; // Incrementar por cada producto con error de DB
-          summary.errors.push({
-            rowNumberExcel: `Error DB (Producto: ${codigo})`,
-            codigoProducto: codigo,
-            messages: [err.errmsg || 'Error de escritura en Base de Datos', `Código Mongoose: ${err.code}`]
-          });
-        });
-      }
-    } else if (summary.totalRowsInExcel > 0 && summary.rowsWithErrors === summary.totalRowsInExcel) {
-      // Todas las filas tuvieron errores de parsing, no se intentó ninguna operación de DB
-      console.log('[Bulk Upload Plain] No operations to perform due to parsing errors in all rows.');
-    }
-    
-    console.log('[Bulk Upload Plain] Summary:', JSON.stringify(summary, null, 2));
-    const status = summary.errors.length > 0 ? 207 : 200;
-    let message = summary.errors.length > 0 ? 
-        `Carga completada con errores. Filas procesadas: ${summary.rowsProcessed}, Errores en filas: ${summary.rowsWithErrors}.` : 
-        'Carga masiva (plana) completada exitosamente.';
-    if (summary.inserted > 0) message += ` Insertados: ${summary.inserted}.`;
-    if (summary.updated > 0) message += ` Actualizados: ${summary.updated}.`;
-
-    if (summary.inserted > 0 || summary.updated > 0) {
-        console.log('[Bulk Upload Plain] Products changed, attempting to refresh cache...');
-        try {
-            await initializeProductCache();
-            console.log('[Bulk Upload Plain] Cache refreshed.');
-        } catch (cacheError) {
-            console.error('[Bulk Upload Plain] Error refreshing cache:', cacheError);
-            summary.errors.push({ rowNumberExcel: 'N/A', codigoProducto: 'Cache', messages: ['Error al refrescar el caché: ' + cacheError.message] });
-        }
-    }
-
-    res.status(status).json({ message, summary });
-
-  } catch (error) {
-    console.error('[Bulk Upload Plain] General error processing uploaded file:', error);
-    summary.errors.push({ rowNumberExcel: 'General', codigoProducto: 'N/A', messages: [error.message, error.stack] });
-    res.status(500).json({ 
-      message: 'Error interno del servidor al procesar el archivo subido (plano).', 
-      summary,
-      error: error.message 
-    });
-  }
-};
-
-// @desc    Actualizar el estado "descontinuado" de un producto
+// @desc    Toggle the discontinued status of a product
 // @route   PUT /api/products/code/:codigoProducto/toggle-discontinued
-// @access  Private (debería serlo eventualmente)
-const toggleProductDiscontinuedStatus = async (req, res) => {
+// @access  Private/Admin (assumed)
+const toggleProductDiscontinuedStatus = asyncHandler(async (req, res) => {
   const { codigoProducto } = req.params;
-  const { descontinuado } = req.body; // Esperamos un booleano: true o false
 
-  if (typeof descontinuado !== 'boolean') {
-    return res.status(400).json({ message: 'El estado "descontinuado" debe ser un valor booleano.' });
+  if (!codigoProducto) {
+    res.status(400);
+    throw new Error('El parámetro codigoProducto es requerido.');
   }
 
-  try {
-    const product = await Producto.findOne({ Codigo_Producto: codigoProducto });
+  const product = await Producto.findOne({ Codigo_Producto: codigoProducto });
 
-    if (!product) {
-      return res.status(404).json({ message: 'Producto no encontrado.' });
-    }
-
-    // Asegurar que el subdocumento caracteristicas exista
-    if (!product.caracteristicas) {
-      product.caracteristicas = {};
-    }
-    product.caracteristicas.descontinuado = descontinuado;
-    
-    // Si también se necesita actualizar fecha_cotizacion aquí, se haría de forma similar:
-    // if (req.body.fecha_cotizacion) { // Asumiendo que viene en el body
-    //   product.caracteristicas.fecha_cotizacion = req.body.fecha_cotizacion;
-    // }
-
-    const updatedProduct = await product.save();
-
-    // Actualizar el caché local si se está usando para este producto
-    const cacheIndex = cachedProducts.findIndex(p => p.Codigo_Producto === codigoProducto || p.codigo_producto === codigoProducto);
-    if (cacheIndex !== -1) {
-        // Asegurar que el objeto en caché tenga la estructura correcta
-        if (!cachedProducts[cacheIndex].caracteristicas) {
-            cachedProducts[cacheIndex].caracteristicas = {};
-        }
-        cachedProducts[cacheIndex].caracteristicas.descontinuado = descontinuado;
-        // Si también se actualiza `descontinuado` a nivel raíz en el caché (para compatibilidad frontend actual)
-        cachedProducts[cacheIndex].descontinuado = descontinuado; 
-        saveCacheToDisk(); 
-    }
-
-    res.status(200).json({
-      message: 'Estado descontinuado del producto actualizado correctamente.',
-      data: updatedProduct
-    });
-
-  } catch (error) {
-    console.error('Error al actualizar estado descontinuado del producto:', error);
-    res.status(500).json({ message: error.message || 'Error interno del servidor' });
+  if (!product) {
+    res.status(404);
+    throw new Error(`Producto con Codigo_Producto ${codigoProducto} no encontrado.`);
   }
-};
+
+  const newDiscontinuedStatus = !product.descontinuado;
+
+  const updatedProduct = await updateProductInDB(codigoProducto, { descontinuado: newDiscontinuedStatus });
+
+  if (!updatedProduct) {
+    // This case might indicate an issue with updateProductInDB or the product disappeared
+    res.status(404); // Or 500 if updateProductInDB should always find it after the above check
+    throw new Error(`Producto con Codigo_Producto ${codigoProducto} no encontrado durante la actualización o la actualización falló.`);
+  }
+  
+  // Ensure the returned product from updateProductInDB reflects the change for the response
+  // If updateProductInDB returns the product *before* update, we might need to re-fetch or merge
+  // For now, assume updateProductInDB returns the updated document or enough info.
+  // Best practice would be for updateProductInDB to return the complete updated document.
+
+  console.log(`Product ${codigoProducto} discontinued status toggled to ${newDiscontinuedStatus}. Attempting to refresh cache...`);
+  const productsFromDB = await fetchBaseProductsFromDB();
+  cachedProducts = productsFromDB;
+  saveCacheToDisk();
+  console.log('Cache refreshed after toggling product discontinued status.');
+
+  res.status(200).json({
+    message: `Estado descontinuado del producto ${codigoProducto} cambiado a ${newDiscontinuedStatus}. Caché refrescado.`,
+    data: updatedProduct // Send back the updated product (or at least its new status)
+  });
+});
 
 module.exports = { 
   fetchProducts, 
@@ -1401,12 +829,9 @@ module.exports = {
   getOptionalProducts,
   getRawOptionalProducts,
   createProductController,
-  getProductByCodeController,
-  updateProductController,
-  deleteProductController,
+  getProductByCode,
+  updateProduct,
   testGetBaseProductsFromDBController,
-  uploadTechnicalSpecifications,
-  uploadBulkProductsMatrix: uploadBulkProductsMatrixDetailed,
-  uploadBulkProductsPlain,
+  getCategories,
   toggleProductDiscontinuedStatus
 };
