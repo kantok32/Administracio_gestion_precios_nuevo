@@ -224,17 +224,17 @@ const generarHtmlParaPdf = (datos) => {
 
     itemsParaCotizar.forEach((item, index) => {
         const productoPrincipal = item.principal;
-        // const keyProductoPrincipal = `principal-${productoPrincipal.codigo_producto}`;
-        // const calculosProductoMap = resultadosCalculados instanceof Map ? resultadosCalculados : new Map(Object.entries(resultadosCalculados));
-        // const calculosProducto = calculosProductoMap.get(keyProductoPrincipal);
+        const keyProductoPrincipal = `principal-${productoPrincipal.codigo_producto}`;
+        const calculosProductoMap = resultadosCalculados instanceof Map ? resultadosCalculados : new Map(Object.entries(resultadosCalculados));
+        const calculosProducto = calculosProductoMap.get(keyProductoPrincipal);
 
-        // let precioUnitarioNetoPrincipal = 0;
-        // if (calculosProducto && calculosProducto.calculados && calculosProducto.calculados.precios_cliente) {
-        //     precioUnitarioNetoPrincipal = calculosProducto.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
-        // }
-        // const cantidadPrincipal = 1;
-        // const totalPrincipal = precioUnitarioNetoPrincipal * cantidadPrincipal;
-        // subtotalNetoGeneral += totalPrincipal;
+        let precioUnitarioNetoPrincipal = 0;
+        if (calculosProducto && calculosProducto.calculados && calculosProducto.calculados.precios_cliente) {
+            precioUnitarioNetoPrincipal = calculosProducto.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
+        }
+        const cantidadPrincipal = 1; // Assuming quantity is always 1 for this report
+        const totalPrincipal = precioUnitarioNetoPrincipal * cantidadPrincipal;
+        subtotalNetoGeneral += totalPrincipal;
 
         itemsHtml += `
             <tr>
@@ -242,20 +242,23 @@ const generarHtmlParaPdf = (datos) => {
                     <b>${productoPrincipal.nombre_del_producto || 'Producto Principal Sin Nombre'}</b><br>
                     <small style="white-space: pre-line;">${productoPrincipal.Descripcion || 'Sin descripción detallada.'}</small>
                 </td>
+                <td style="text-align:center;">${cantidadPrincipal}</td>
+                <td style="text-align:right;">${formatCLP(precioUnitarioNetoPrincipal)}</td>
+                <td style="text-align:right;">${formatCLP(totalPrincipal)}</td>
             </tr>
         `;
 
         if (item.opcionales && item.opcionales.length > 0) {
             item.opcionales.forEach(opcional => {
-                // const keyOpcional = `opcional-${opcional.codigo_producto}`;
-                // const calculosOpcional = calculosProductoMap.get(keyOpcional);
-                // let precioNetoOpcional = 0;
-                // if (calculosOpcional && calculosOpcional.calculados && calculosOpcional.calculados.precios_cliente) {
-                //     precioNetoOpcional = calculosOpcional.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
-                // }
-                // const cantidadOpcional = 1;
-                // const totalOpcional = precioNetoOpcional * cantidadOpcional;
-                // subtotalNetoGeneral += totalOpcional;
+                const keyOpcional = `opcional-${opcional.codigo_producto}`;
+                const calculosOpcional = calculosProductoMap.get(keyOpcional);
+                let precioNetoOpcional = 0;
+                if (calculosOpcional && calculosOpcional.calculados && calculosOpcional.calculados.precios_cliente) {
+                    precioNetoOpcional = calculosOpcional.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
+                }
+                const cantidadOpcional = 1; // Assuming quantity is always 1 for optionals
+                const totalOpcional = precioNetoOpcional * cantidadOpcional;
+                subtotalNetoGeneral += totalOpcional;
 
                 itemsHtml += `
                     <tr class="opcional-row">
@@ -263,15 +266,18 @@ const generarHtmlParaPdf = (datos) => {
                             &nbsp;&nbsp;&nbsp;└─ <i>${opcional.nombre_del_producto || 'Opcional Sin Nombre'}</i><br>
                             &nbsp;&nbsp;&nbsp;<small style="padding-left:15px; white-space: pre-line;"><i>${opcional.Descripcion || 'Sin descripción detallada.'}</i></small>
                         </td>
+                        <td style="text-align:center;">${cantidadOpcional}</td>
+                        <td style="text-align:right;">${formatCLP(precioNetoOpcional)}</td>
+                        <td style="text-align:right;">${formatCLP(totalOpcional)}</td>
                     </tr>
                 `;
             });
         }
     });
 
-    // const ivaPct = 0.19; 
-    // const montoIva = subtotalNetoGeneral * ivaPct;
-    // const totalGeneral = subtotalNetoGeneral + montoIva;
+    const ivaPct = 0.19; 
+    const montoIva = subtotalNetoGeneral * ivaPct;
+    const totalGeneral = subtotalNetoGeneral + montoIva;
 
     let htmlContent = `
     <html>
@@ -494,7 +500,10 @@ const generarHtmlParaPdf = (datos) => {
                 <table class="items">
                     <thead>
                         <tr>
-                            <th style="width:100%;">Artículo y descripción</th>
+                            <th style="width:55%;">Artículo y descripción</th>
+                            <th style="width:10%; text-align:center;">Cantidad</th>
+                            <th style="width:17.5%; text-align:right;">Precio unitario</th>
+                            <th style="width:17.5%; text-align:right;">Total</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -503,7 +512,7 @@ const generarHtmlParaPdf = (datos) => {
                 </table>
             </div>
 
-            ${/* <div class="totals-section">
+            <div class="totals-section">
                 <table class="totals-table">
                     <tbody>
                         <tr>
@@ -520,7 +529,7 @@ const generarHtmlParaPdf = (datos) => {
                         </tr>
                     </tbody>
                 </table>
-            </div> */ ''}
+            </div>
             
             ${/* <div class="conditions-section">
                 <h2>Condiciones de compra</h2>
