@@ -2,6 +2,7 @@ import axios from 'axios';
 import type { Producto } from "../types/product";
 import type { CurrencyData } from "../types/currency";
 import { CostoPerfilData, ProductoData } from '../types';
+import { getCurrencyValues } from './currencyService';
 
 // --- INICIO MODIFICACIÓN: Tipo para el payload de calcularCostoProductoConPerfil ---
 // Este tipo debe coincidir con lo que espera el backend para /api/costo-perfiles/calcular-producto
@@ -38,10 +39,10 @@ interface CalcularCostoProductoResponse {
 // --- FIN MODIFICACIÓN ---
 
 // Establecer URL base según entorno
-const API_URL = 'http://localhost:5001/api';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 // Instancia de axios con configuración común
-const apiClient = axios.create({
+export const apiClient = axios.create({
   baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
@@ -55,22 +56,27 @@ apiClient.interceptors.response.use(
   (error) => {
     console.error('API Error:', error);
     
-    // Si no hay respuesta del servidor o es un error de red
     if (!error.response) {
       return Promise.reject({
         message: 'Error de conexión. Verifique su conexión a internet o inténtelo más tarde.',
+        status: 0,
+        data: null
       });
     }
     
-    // Si hay un error de servidor
     if (error.response.status >= 500) {
       return Promise.reject({
         message: 'Error en el servidor. Por favor, inténtelo más tarde.',
+        status: error.response.status,
+        data: error.response.data
       });
     }
     
-    // Otros errores
-    return Promise.reject(error);
+    return Promise.reject({
+      message: error.response.data?.message || 'Error en la solicitud.',
+      status: error.response.status,
+      data: error.response.data
+    });
   }
 );
 
@@ -143,43 +149,27 @@ const mockCurrencies = {
 export const getCachedProducts = async (): Promise<{total: number, data: Producto[]}> => {
   console.log('Fetching products...');
   try {
-    // Intenta obtener datos del backend real
-    const response = await apiClient.get('/products');
+    const response = await apiClient.get('/products/cached');
     console.log('Products fetched successfully:', response.data);
     return response.data;
   } catch (error) {
-    console.error('Error fetching products, using mock data:', error);
-    // Si hay un error, usa datos de prueba
-    return mockProducts;
-  }
-};
-
-export const getCurrencies = async (): Promise<CurrencyData> => {
-  console.log('Fetching currencies...');
-  try {
-    // Intenta obtener datos del backend real
-    const response = await apiClient.get('/currencies');
-    console.log('Currencies fetched successfully:', response.data);
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching currencies, using mock data:', error);
-    // Si hay un error, usa datos de prueba
-    return mockCurrencies;
+    console.error('Error fetching cached products:', error);
+    throw error;
   }
 };
 
 export const getProducts = async (): Promise<Producto[]> => {
-  const response = await axios.get(`${API_URL}/products`);
+  const response = await apiClient.get('/products');
   return response.data;
 };
 
 export const getDollarValue = async () => {
-  const response = await axios.get(`${API_URL}/products/currency/dollar`);
+  const response = await apiClient.get('/products/currency/dollar');
   return response.data;
 };
 
 export const getEuroValue = async () => {
-  const response = await axios.get(`${API_URL}/products/currency/euro`);
+  const response = await apiClient.get('/products/currency/euro');
   return response.data;
 };
 
@@ -197,19 +187,18 @@ const COSTO_API_URL = 'http://localhost:5001/api/costo-perfiles';
 
 const fetchAllProfiles = async (): Promise<CostoPerfilData[]> => {
   try {
-    const response = await axios.get<CostoPerfilData[]>(`${COSTO_API_URL}/`); // Modificado
+    const response = await apiClient.get<CostoPerfilData[]>('/costo-perfiles');
     return response.data;
   } catch (error) {
     console.error('Error fetching all cost profiles:', error);
-    throw error; // Re-lanzar para manejo en el componente
+    throw error;
   }
 };
 
 const fetchProfileData = async (profileId: string): Promise<CostoPerfilData | null> => {
   if (!profileId) return null;
   try {
-    // Usar endpoint correcto: /costo-perfiles/:id
-    const response = await axios.get<CostoPerfilData>(`${COSTO_API_URL}/${profileId}`); // Modificado
+    const response = await apiClient.get<CostoPerfilData>(`/costo-perfiles/${profileId}`);
     return response.data;
   } catch (error) {
     console.error(`Error fetching profile data for ID ${profileId}:`, error);
@@ -223,8 +212,7 @@ const fetchProfileData = async (profileId: string): Promise<CostoPerfilData | nu
 
 const updateProfile = async (profileId: string, data: Partial<CostoPerfilData>): Promise<CostoPerfilData> => {
   try {
-    // Usar endpoint correcto: /costo-perfiles/:id
-    const response = await axios.put<CostoPerfilData>(`${COSTO_API_URL}/${profileId}`, data); // Modificado
+    const response = await apiClient.put<CostoPerfilData>(`/costo-perfiles/${profileId}`, data);
     return response.data;
   } catch (error) {
     console.error(`Error updating profile ${profileId}:`, error);
@@ -234,9 +222,7 @@ const updateProfile = async (profileId: string, data: Partial<CostoPerfilData>):
 
 const createProfile = async (data: Omit<CostoPerfilData, '_id' | 'createdAt' | 'updatedAt'>): Promise<CostoPerfilData> => {
   try {
-    // Asumiendo que tienes una ruta POST en /api/costo-perfiles o /api/perfiles
-    // Ajusta la URL si es necesario (usaré /costo-perfiles como ejemplo)
-    const response = await axios.post<CostoPerfilData>(`${COSTO_API_URL}/`, data); // Modificado
+    const response = await apiClient.post<CostoPerfilData>('/costo-perfiles', data);
     return response.data;
   } catch (error) {
     console.error('Error creating profile:', error);
@@ -246,8 +232,7 @@ const createProfile = async (data: Omit<CostoPerfilData, '_id' | 'createdAt' | '
 
 const deleteProfile = async (profileId: string): Promise<{ message: string }> => {
   try {
-    // Usar endpoint correcto: /costo-perfiles/:id
-    const response = await axios.delete<{ message: string }>(`${COSTO_API_URL}/${profileId}`); // Modificado
+    const response = await apiClient.delete<{ message: string }>(`/costo-perfiles/${profileId}`);
     return response.data;
   } catch (error) {
     console.error(`Error deleting profile ${profileId}:`, error);
@@ -258,11 +243,10 @@ const deleteProfile = async (profileId: string): Promise<{ message: string }> =>
 // --- Funciones relacionadas con Productos (Ejemplo) ---
 const fetchAllProducts = async (): Promise<ProductoData[]> => {
   try {
-    // Ajusta la ruta si es diferente
-    const response = await axios.get<ProductoData[]>(`${API_URL}/products`); 
+    const response = await apiClient.get<ProductoData[]>('/products');
     return response.data;
   } catch (error) {
-    console.error('Error fetching products:', error);
+    console.error('Error fetching all products:', error);
     throw error;
   }
 };
@@ -270,19 +254,11 @@ const fetchAllProducts = async (): Promise<ProductoData[]> => {
 // --- INICIO MODIFICACIÓN: Nueva función para calcular costo de producto con perfil ---
 const calcularCostoProductoConPerfil = async (payload: CalcularCostoProductoPayload): Promise<CalcularCostoProductoResponse> => {
   try {
-    const response = await axios.post<CalcularCostoProductoResponse>(`${COSTO_API_URL}/calcular-producto`, payload);
+    const response = await apiClient.post<CalcularCostoProductoResponse>('/costo-perfiles/calcular-producto', payload);
     return response.data;
   } catch (error) {
-    console.error('Error en calcularCostoProductoConPerfil:', error);
-    // Mejorar el manejo de errores para que el componente pueda interpretarlo
-    if (axios.isAxiosError(error) && error.response) {
-      throw { 
-        message: error.response.data.message || 'Error al calcular el costo del producto.',
-        status: error.response.status,
-        data: error.response.data
-      };
-    }
-    throw { message: 'Error desconocido al calcular el costo del producto.' };
+    console.error('Error calculating product cost:', error);
+    throw error;
   }
 };
 // --- FIN MODIFICACIÓN ---
@@ -295,13 +271,14 @@ export const api = {
   updateProfile,
   createProfile,
   deleteProfile,
-  // Productos (ejemplo)
+  // Productos
+  getCachedProducts,
+  getProducts,
   fetchAllProducts,
-  // Añadir funciones de divisas
+  // Divisas
   getDollarValue, 
   getEuroValue,
-  // --- INICIO MODIFICACIÓN: Añadir nueva función al objeto api exportado ---
+  getCurrencyValues,
+  // Cálculos
   calcularCostoProductoConPerfil,
-  // --- FIN MODIFICACIÓN ---
-  // ... otras funciones API necesarias
 };

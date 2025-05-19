@@ -35,9 +35,10 @@ import {
   Plus,
   FileEdit,
 } from 'lucide-react';
-import { Product } from '../types/product';
+import { Producto } from '../types/product';
 import { CurrencyData } from '../types/currency';
 import { getCachedProducts, getCurrencies } from '../services/api';
+import { getCurrencyValues, CurrencyResponse } from '../services/currencyService';
 
 // Estilos personalizados para forzar el modo claro
 const lightModeStyles = {
@@ -75,8 +76,8 @@ const lightModeStyles = {
 console.log('Dashboard module loading:', new Date().toISOString());
 
 const Dashboard: React.FC = () => {
-  const [products, setProducts] = useState<{total: number, data: Product[]}>({ total: 0, data: [] });
-  const [currencies, setCurrencies] = useState<CurrencyData | null>(null);
+  const [products, setProducts] = useState<{total: number, data: Producto[]}>({ total: 0, data: [] });
+  const [currencies, setCurrencies] = useState<CurrencyResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
@@ -84,6 +85,8 @@ const Dashboard: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('todas');
   const [categories, setCategories] = useState<string[]>(['todas']);
+  const [isLoadingCurrencies, setIsLoadingCurrencies] = useState(false);
+  const [currencyError, setCurrencyError] = useState<string | null>(null);
 
   // Añadir log después del último import
   console.log('Dashboard imports completed');
@@ -101,13 +104,13 @@ const Dashboard: React.FC = () => {
       
       // Extraer categorías únicas de los productos
       if (productsData.data && productsData.data.length > 0) {
-        const uniqueCategories = [...new Set(productsData.data.map((p: Product) => p.categoria).filter(Boolean) as string[])];
+        const uniqueCategories = [...new Set(productsData.data.map((p: Producto) => p.categoria).filter(Boolean) as string[])];
         console.log('Categories extracted:', uniqueCategories);
         setCategories(['todas', ...uniqueCategories]);
       }
       
       console.log('Fetching currencies data...');
-      const currenciesData = await getCurrencies();
+      const currenciesData = await getCurrencyValues();
       console.log('Currencies data received:', currenciesData);
       setCurrencies(currenciesData);
       
@@ -156,6 +159,26 @@ const Dashboard: React.FC = () => {
     const matchesCategory = selectedCategory === 'todas' || product.categoria === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  // Función para cargar los valores de divisas
+  const loadCurrencyValues = async () => {
+    setIsLoadingCurrencies(true);
+    setCurrencyError(null);
+    try {
+      const response = await getCurrencyValues();
+      setCurrencies(response);
+    } catch (error) {
+      console.error('Error loading currency values:', error);
+      setCurrencyError('Error al cargar los valores de divisas');
+    } finally {
+      setIsLoadingCurrencies(false);
+    }
+  };
+
+  // Cargar valores de divisas al montar el componente
+  useEffect(() => {
+    loadCurrencyValues();
+  }, []);
 
   if (loading) {
     return (
@@ -217,7 +240,7 @@ const Dashboard: React.FC = () => {
   }
 
   const hasProducts = products.data && products.data.length > 0;
-  const hasCurrencies = currencies?.currencies?.dollar?.value || currencies?.currencies?.euro?.value;
+  const hasCurrencies = currencies?.data?.dollar?.value || currencies?.data?.euro?.value;
 
   if (!hasProducts && !hasCurrencies) {
     return (
@@ -424,18 +447,30 @@ const Dashboard: React.FC = () => {
         <Typography component="h2" variant="h6" sx={lightModeStyles.typographyPrimary} gutterBottom>
           Valores de Divisas
         </Typography>
-        <Typography component="p" variant="h5" sx={lightModeStyles.typography}>
-          USD: {currencies?.currencies?.dollar?.value || 'No disponible'}
-        </Typography>
-        <Typography component="p" variant="h5" sx={lightModeStyles.typography}>
-          EUR: {currencies?.currencies?.euro?.value || 'No disponible'}
-        </Typography>
-        {currencies?.currencies?.dollar?.last_update && (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" sx={lightModeStyles.typographySecondary}>
-              Última actualización: {new Date(currencies.currencies.dollar.last_update).toLocaleString('es-ES')}
-            </Typography>
+        {isLoadingCurrencies ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100px' }}>
+            <CircularProgress size={24} />
           </Box>
+        ) : currencyError ? (
+          <Typography color="error" variant="body2">
+            {currencyError}
+          </Typography>
+        ) : (
+          <>
+            <Typography component="p" variant="h5" sx={lightModeStyles.typography}>
+              USD: {currencies?.data?.dollar?.value || 'No disponible'}
+            </Typography>
+            <Typography component="p" variant="h5" sx={lightModeStyles.typography}>
+              EUR: {currencies?.data?.euro?.value || 'No disponible'}
+            </Typography>
+            {currencies?.last_update && (
+              <Box sx={{ mt: 2 }}>
+                <Typography variant="caption" sx={lightModeStyles.typographySecondary}>
+                  Última actualización: {new Date(currencies.last_update).toLocaleString('es-ES')}
+                </Typography>
+              </Box>
+            )}
+          </>
         )}
       </Paper>
     </Container>

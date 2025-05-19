@@ -23,10 +23,7 @@ import {
   AccordionSummary,
   AccordionDetails,
 } from '@mui/material';
-import SaveIcon from '@mui/icons-material/Save';
-import CancelIcon from '@mui/icons-material/Cancel';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'; // Mantener por si se usa como página
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { Save, X, ArrowLeft, ChevronDown } from 'lucide-react';
 import { CostoPerfilData } from '../types';
 import { api } from '../services/api';
 
@@ -223,7 +220,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
              <Button
                  variant="outlined"
                  // Usar icono y función correctos
-                 startIcon={isStandalonePage ? <ArrowBackIcon /> : <CancelIcon />}
+                 startIcon={isStandalonePage ? <ArrowLeft /> : <X />}
                  onClick={handleCancel}
                  sx={{ mt: 2 }}
              >
@@ -238,7 +235,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
        <form onSubmit={handleSubmit}>
           {/* --- Acordeón Datos Generales (expandido por defecto) --- */}
           <Accordion defaultExpanded sx={{ boxShadow: 'none', '&::before': { display: 'none' } }}>
-             <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls="general-content" id="general-header">
+             <AccordionSummary expandIcon={<ChevronDown />} aria-controls="general-content" id="general-header">
                  <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>Datos Generales</Typography>
              </AccordionSummary>
              <AccordionDetails sx={{ pt: 0, pb: 1 }}>
@@ -258,7 +255,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
           
           {/* --- Acordeón Logistica y seguro --- */}
           <Accordion sx={{ boxShadow: 'none', '&::before': { display: 'none' } }}>
-             <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls="logistica-content" id="logistica-header">
+             <AccordionSummary expandIcon={<ChevronDown />} aria-controls="logistica-content" id="logistica-header">
                  <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>Logistica y seguro</Typography>
              </AccordionSummary>
              <AccordionDetails sx={{ pt: 0, pb: 1 }}>
@@ -274,7 +271,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
 
            {/* --- Acordeón Costos de Importación --- */}
            <Accordion sx={{ boxShadow: 'none', '&::before': { display: 'none' } }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls="importacion-content" id="importacion-header">
+              <AccordionSummary expandIcon={<ChevronDown />} aria-controls="importacion-content" id="importacion-header">
                   <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>Costos de Importación</Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ pt: 0, pb: 1 }}>
@@ -288,7 +285,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
 
            {/* --- Acordeón Conversión a CLP y Margen --- */}
            <Accordion sx={{ boxShadow: 'none', '&::before': { display: 'none' } }}>
-              <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls="conversion-content" id="conversion-header">
+              <AccordionSummary expandIcon={<ChevronDown />} aria-controls="conversion-content" id="conversion-header">
                   <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>Conversión a CLP y Margen</Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ pt: 0, pb: 1 }}>
@@ -303,7 +300,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
             
             {/* --- Acordeón Precios para Cliente --- */}
             <Accordion sx={{ boxShadow: 'none', '&::before': { display: 'none' } }}>
-               <AccordionSummary expandIcon={<ExpandMoreIcon />} aria-controls="cliente-content" id="cliente-header">
+               <AccordionSummary expandIcon={<ChevronDown />} aria-controls="cliente-content" id="cliente-header">
                    <Typography variant="subtitle1" sx={{ fontWeight: 'medium' }}>Precios para Cliente</Typography>
                </AccordionSummary>
                <AccordionDetails sx={{ pt: 0, pb: 1 }}>
@@ -318,8 +315,9 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
            <Grid container sx={{ mt: 3, px: 2 }} justifyContent="space-between">
              <Button
                variant="outlined"
-               startIcon={<CancelIcon />}
-               onClick={handleCancel} 
+               color="secondary"
+               startIcon={<X />}
+               onClick={handleCancel}
                disabled={isSaving}
              >
                Cancelar
@@ -328,7 +326,7 @@ const PerfilEditForm: React.FC<PerfilEditFormProps> = ({ profileId, onSaveSucces
                type="submit"
                variant="contained"
                color="primary"
-               startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <SaveIcon />}
+               startIcon={isSaving ? <CircularProgress size={20} color="inherit" /> : <Save />}
                disabled={isSaving || loading}
              >
                {isSaving ? 'Guardando...' : 'Guardar Cambios'}

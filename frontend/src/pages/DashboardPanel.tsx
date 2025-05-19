@@ -4,8 +4,9 @@ import { AlertCircle, History, Search, Filter, Clock, Settings, RefreshCcw, Down
 import PageLayout from '../components/PageLayout';
 import { Line } from 'react-chartjs-2';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
-import { Rows as RowsIcon } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { api } from '../services/api';
+import { Producto } from '../types/product';
 
 // Register Chart.js components
 ChartJS.register(
@@ -50,6 +51,8 @@ export default function DashboardPanel() {
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas');
   const [timeGranularity, setTimeGranularity] = useState('Mes');
   const [dataSource, setDataSource] = useState('Documentos');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Estilos
   const cardStyle: React.CSSProperties = {
@@ -190,44 +193,71 @@ export default function DashboardPanel() {
     marginBottom: '24px'
   };
 
-  // Simulación de datos (reemplazar con llamadas a API reales)
+  // Cargar datos reales
   useEffect(() => {
-    // Aquí irían las llamadas a la API para obtener los datos reales
-    const mockEquiposDesactualizados: Equipo[] = [
-      {
-        codigo: 'CHIP-001',
-        nombre: 'Chipeadora T-Rex 500',
-        categoria: 'PTO',
-        ultima_actualizacion: '2023-06-15',
-        costo_fabrica_eur: 85000
-      },
-      {
-        codigo: 'CHIP-002',
-        nombre: 'Astilladora Industrial H-900',
-        categoria: 'Industrial',
-        ultima_actualizacion: '2023-08-20',
-        costo_fabrica_eur: 150000
-      }
-    ];
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    const mockConfiguraciones: Configuracion[] = [
-      {
-        id: 'CFG-001',
-        fecha: '2024-05-20',
-        equipo_base: {
-          codigo: 'CHIP-001',
-          nombre: 'Chipeadora T-Rex 500'
-        },
-        opcionales: [
-          { codigo: 'OPC-001', nombre: 'Extension de tolva' },
-          { codigo: 'OPC-002', nombre: 'Kit de mantenimiento' }
-        ],
-        total_items: 3
-      }
-    ];
+        // Obtener productos
+        const { data: productos } = await api.getCachedProducts();
 
-    setEquiposDesactualizados(mockEquiposDesactualizados);
-    setConfiguracionesRecientes(mockConfiguraciones);
+        // Validar y convertir productos a equipos
+        const equipos: Equipo[] = productos
+          .filter((producto: Producto) => {
+            // Filtrar productos inválidos
+            return producto && 
+                   typeof producto === 'object' && 
+                   (producto.codigo_producto || producto.nombre_del_producto);
+          })
+          .map((producto: Producto) => {
+            // Asegurarse de que los campos opcionales tengan valores por defecto
+            const codigo = producto.codigo_producto || 'Sin código';
+            const nombre = producto.nombre_del_producto || 'Sin nombre';
+            const categoria = producto.categoria || 'Sin categoría';
+            const ultimaActualizacion = producto.fecha_costo_original || new Date().toISOString();
+            const costoFabrica = typeof producto.costo_lista_original_eur === 'number' 
+              ? producto.costo_lista_original_eur 
+              : 0;
+
+            return {
+              codigo,
+              nombre,
+              categoria,
+              ultima_actualizacion: ultimaActualizacion,
+              costo_fabrica_eur: costoFabrica
+            };
+          });
+
+        // Filtrar equipos desactualizados (más de 20 horas)
+        const equiposDesactualizados = equipos.filter(equipo => {
+          try {
+            const ultimaActualizacion = new Date(equipo.ultima_actualizacion);
+            const ahora = new Date();
+            const horasDiferencia = (ahora.getTime() - ultimaActualizacion.getTime()) / (1000 * 60 * 60);
+            return horasDiferencia > 20;
+          } catch (error) {
+            console.error('Error al procesar fecha:', error);
+            return false;
+          }
+        });
+
+        setEquiposDesactualizados(equiposDesactualizados);
+
+        // TODO: Implementar la obtención de configuraciones recientes
+        // Por ahora, usamos un array vacío
+        setConfiguracionesRecientes([]);
+
+      } catch (err: any) {
+        console.error('Error fetching dashboard data:', err);
+        setError(err.message || 'Error al cargar los datos del dashboard');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
   // Sample data structure (replace with actual data fetching)
