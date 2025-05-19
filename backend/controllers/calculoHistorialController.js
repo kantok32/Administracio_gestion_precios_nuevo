@@ -5,13 +5,17 @@ const ContadorConfiguracion = require('../models/ContadorConfiguracion');
 const pdf = require('html-pdf');
 
 // Función helper para obtener el siguiente número de configuración
-async function obtenerSiguienteNumeroConfiguracion() {
-    const contador = await ContadorConfiguracion.findOneAndUpdate(
-        { _id: 'configuracionCounter' }, // Un ID fijo para el documento contador
-        { $inc: { secuencia: 1 } },
-        { new: true, upsert: true, setDefaultsOnInsert: true } // new:true devuelve el doc modificado, upsert:true crea si no existe
+async function obtenerSiguienteNumeroConfiguracion(nombreContador = 'calculoHistorialCounter') {
+    const contador = await ContadorConfiguracion.findByIdAndUpdate(
+        nombreContador, // Usamos un ID fijo para el documento contador
+        { $inc: { secuencia: 1 } }, // Incrementa el campo 'secuencia' en 1
+        {
+            new: true, // Devuelve el documento modificado (con la nueva secuencia)
+            upsert: true, // Crea el documento contador si no existe
+            setDefaultsOnInsert: true // Asegura que se aplique el default de 'secuencia: 0' si se crea
+        }
     );
-    return contador.secuencia;
+    return contador.secuencia; // Devuelve el nuevo número de secuencia
 }
 
 // @desc    Guardar resultados de cálculo y devolverlos en formato CSV para exportación
@@ -35,7 +39,7 @@ const guardarYExportarCalculos = asyncHandler(async (req, res) => {
 
     try {
         // 0. Obtener el siguiente número de configuración ANTES de cualquier otra cosa
-        const numeroSecuencialConfig = await obtenerSiguienteNumeroConfiguracion();
+        const numeroSecuencialConfig = await obtenerSiguienteNumeroConfiguracion('calculoHistorialCounter');
 
         // 1. Obtener descripciones de productos y opcionales
         const productosConDescripcion = [];
@@ -98,7 +102,8 @@ const guardarYExportarCalculos = asyncHandler(async (req, res) => {
             clienteContactoNombre: cotizacionDetails.clienteContactoNombre,
             clienteContactoEmail: cotizacionDetails.clienteContactoEmail,
             clienteContactoTelefono: cotizacionDetails.clienteContactoTelefono,
-            numeroCotizacion: numeroSecuencialConfig, // Usar el número secuencial generado
+            numeroConfiguracion: numeroSecuencialConfig,
+            numeroCotizacion: numeroSecuencialConfig,
             referenciaDocumento: cotizacionDetails.referenciaDocumento,
             fechaCreacionCotizacion: cotizacionDetails.fechaCreacion ? new Date(cotizacionDetails.fechaCreacion) : new Date(),
             fechaCaducidadCotizacion: cotizacionDetails.fechaCaducidad ? new Date(cotizacionDetails.fechaCaducidad) : undefined,
@@ -151,6 +156,8 @@ const guardarYExportarCalculos = asyncHandler(async (req, res) => {
             res.header('Content-Type', 'application/pdf');
             // Usar el número secuencial para el nombre del archivo y mostrar en línea
             res.header('Content-Disposition', `inline; filename="Configuracion_${numeroSecuencialConfig}.pdf"`);
+            res.header('X-Calculo-ID', nuevoHistorial._id.toString());
+            res.header('X-Numero-Cotizacion', numeroSecuencialConfig.toString());
             res.send(buffer);
         });
 
@@ -556,7 +563,94 @@ const generarHtmlParaPdf = (datos) => {
     return htmlContent;
 };
 
+// @desc    Guardar un nuevo historial de cálculo
+// @route   POST /api/calculo-historial
+// @access  Private (o según se defina la autenticación para esta acción)
+const guardarCalculoHistorial = asyncHandler(async (req, res) => {
+  try {
+    const { itemsParaCotizar, resultadosCalculados, cotizacionDetails, nombreReferencia, selectedProfileId, nombrePerfil, anoEnCursoGlobal } = req.body;
+
+    if (!itemsParaCotizar || !resultadosCalculados) {
+      return res.status(400).json({ message: 'Los campos \'itemsParaCotizar\' y \'resultadosCalculados\' son obligatorios.' });
+    }
+    
+    const numeroSecuencialConfig = await obtenerSiguienteNumeroConfiguracion('calculoHistorialCounter');
+
+    const nuevoHistorial = new CalculoHistorial({
+      itemsParaCotizar,
+      resultadosCalculados,
+      cotizacionDetails, 
+      nombreReferencia,
+      selectedProfileId: selectedProfileId || null,
+      nombrePerfil: nombrePerfil || null,
+      anoEnCursoGlobal: anoEnCursoGlobal || null,
+      numeroConfiguracion: numeroSecuencialConfig,
+      // Si cotizacionDetails no siempre viene o es parcial, considera valores por defecto o validación
+    });
+
+    const historialGuardado = await nuevoHistorial.save();
+    res.status(201).json({
+      message: 'Historial de cálculo guardado exitosamente.',
+      data: historialGuardado
+    });
+
+  } catch (error) {
+    console.error('Error al guardar el historial de cálculo:', error);
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return res.status(400).json({ 
+          message: 'Datos inválidos para el historial de cálculo.', 
+          errors: messages 
+      });
+    }
+    res.status(500).json({ message: 'Error interno al intentar guardar el historial de cálculo.', error: error.message });
+  }
+});
+
+// @desc    Obtener todos los historiales de cálculo guardados
+// @route   GET /api/calculo-historial
+// @access  Private (o según se defina)
+const getAllCalculosHistorial = asyncHandler(async (req, res) => {
+  try {
+    // Por defecto, ordenar por fecha de creación descendente (más nuevos primero)
+    const historiales = await CalculoHistorial.find({}).sort({ createdAt: -1 });
+    res.status(200).json(historiales);
+  } catch (error) {
+    console.error('Error al obtener todos los historiales de cálculo:', error);
+    res.status(500).json({ message: 'Error interno al obtener los historiales de cálculo.', error: error.message });
+  }
+});
+
+// @desc    Obtener un historial de cálculo específico por su ID
+// @route   GET /api/calculo-historial/:id
+// @access  Public (o según se defina)
+const getCalculoHistorialById = asyncHandler(async (req, res) => {
+  try {
+    const historial = await CalculoHistorial.findById(req.params.id);
+
+    if (historial) {
+      res.status(200).json(historial);
+    } else {
+      res.status(404);
+      throw new Error('Historial de cálculo no encontrado.');
+    }
+  } catch (error) {
+    console.error(`Error al obtener el historial de cálculo por ID (${req.params.id}):`, error);
+    // Si el error es por un ID de formato inválido para ObjectId
+    if (error.kind === 'ObjectId') {
+        res.status(400);
+        throw new Error('ID de historial de cálculo no válido.');
+    }
+    // Usar el status code que ya podría estar seteado (404) o default a 500
+    const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
+    res.status(statusCode).json({ message: error.message || 'Error interno al obtener el historial.' });
+  }
+});
+
 module.exports = {
     guardarYExportarCalculos,
-    generarHtmlParaPdf
+    generarHtmlParaPdf,
+    guardarCalculoHistorial,
+    getAllCalculosHistorial,
+    getCalculoHistorialById
 }; 

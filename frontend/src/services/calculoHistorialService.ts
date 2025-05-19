@@ -46,10 +46,9 @@ export interface GuardarCalculoResponse {
 }
 
 
-// Esta función asume que el backend podría devolver JSON en caso de éxito (además del PDF)
-// o un JSON de error. Si solo devuelve PDF, el manejo de la respuesta debe ser como blob.
+// Esta función debe llamar al endpoint que SÓLO guarda y devuelve JSON.
 export const guardarCalculoHistorial = async (payload: GuardarCalculoPayload): Promise<GuardarCalculoResponse> => {
-  const response = await fetch('/api/calculos-historial/guardar-y-exportar', {
+  const response = await fetch('/api/calculo-historial/guardar', { // URL CORREGIDA
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -57,50 +56,73 @@ export const guardarCalculoHistorial = async (payload: GuardarCalculoPayload): P
     body: JSON.stringify(payload),
   });
 
-  // Si el backend SÓLO devuelve PDF y no un JSON de éxito/error, este bloque necesitará cambiar.
-  // Por ahora, intentamos parsear como JSON.
-  // Si la respuesta es directamente un PDF, Content-Type será 'application/pdf'.
-  const contentType = response.headers.get("content-type");
+  const data = await response.json(); // Siempre esperamos JSON de este endpoint
 
   if (!response.ok) {
-    let errorData;
-    if (contentType && contentType.includes("application/json")) {
-      errorData = await response.json();
-    } else {
-      const errorText = await response.text();
-      errorData = { message: errorText || `Error ${response.status} al guardar el cálculo.` };
-    }
-    console.error('[calculoHistorialService] Error API:', errorData);
-    throw new Error(errorData.message || `Error ${response.status} al guardar el cálculo.`);
+    console.error('[calculoHistorialService] Error API:', data);
+    // Asumimos que 'data' (el JSON de error del backend) tiene una propiedad 'message'
+    throw new Error(data.message || `Error ${response.status} al guardar el cálculo.`);
   }
 
-  // Si la respuesta es OK y es JSON (ej. el backend devuelve el ID y numeroCotizacion)
-  if (contentType && contentType.includes("application/json")) {
-    return await response.json() as GuardarCalculoResponse;
-  } else if (contentType && contentType.includes("application/pdf")) {
-    // Si es PDF, el guardado fue implícitamente exitoso en el backend.
-    // No podemos retornar un JSON estándar aquí si el cuerpo es el PDF.
-    // Podríamos devolver un objeto de éxito simulado si el frontend lo necesita.
-    // O el frontend que llama a esto debe estar preparado para manejar un blob.
-    // Por ahora, indicamos éxito pero sin datos específicos del objeto guardado si es PDF.
-    // idealmente, el backend debería tener un endpoint que solo guarde y devuelva JSON,
-    // y otro para obtener el PDF.
-    console.warn('[calculoHistorialService] Guardado exitoso, pero la respuesta es un PDF. No se pueden extraer datos del historial guardado del cuerpo de la respuesta.')
-    // Se necesitaría una forma de obtener el numeroCotizacion para el mensaje de éxito.
-    // Esto podría venir de un header personalizado en la respuesta del backend.
-    const numeroCotizacionHeader = response.headers.get('X-Numero-Cotizacion');
+  // Si la respuesta es OK, 'data' es el cuerpo JSON de éxito.
+  // La interfaz GuardarCalculoResponse debería idealmente coincidir con la estructura de 'data'.
+  // Por ejemplo, si el backend devuelve { message: string, data: { _id: string, ... } }
+  // entonces la interfaz debería reflejar eso para un tipado correcto.
+  return data as GuardarCalculoResponse; // Devolvemos directamente el JSON parseado
+}; 
 
-    return { 
-        _id: response.headers.get('X-Calculo-ID') || 'ID_DESCONOCIDO_VER_HEADERS', // Asumiendo que el backend puede añadir este header
-        numeroCotizacion: numeroCotizacionHeader ? parseInt(numeroCotizacionHeader, 10) : 0, // Asumiendo header X-Numero-Cotizacion
-        message: "Cálculo guardado exitosamente. El PDF se generó." 
-    };
+// Interfaz para un ítem individual en la lista de historial
+// Ajusta esto según los campos que realmente devuelve tu backend y quieres mostrar
+export interface HistorialCalculoItem {
+  _id: string;
+  itemsParaCotizar: any[]; // Considerar definir una interfaz más específica, e.g., { principal: ProductoHistorialItem, opcionales: ProductoHistorialItem[] }[]
+  resultadosCalculados: any; // Considerar definir una interfaz más específica
+  cotizacionDetails?: {
+    clienteNombre?: string;
+    emisorNombre?: string;
+    emisorAreaComercial?: string;
+    emisorEmail?: string;
+    // Añadir más campos si se muestran en la tabla o se necesitan
+  };
+  nombreReferencia?: string;
+  numeroConfiguracion?: number;
+  nombrePerfil?: string;
+  createdAt: string; // o Date, si se convierte
+  // Añadir otros campos que se obtienen del backend y se necesitan en el frontend
+}
+
+// Función para obtener todos los historiales de cálculo
+export const getCalculosHistorial = async (): Promise<HistorialCalculoItem[]> => {
+  const response = await fetch('/api/calculo-historial', {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error('[calculoHistorialService] Error API obteniendo historial:', errorData);
+    throw new Error(errorData.message || `Error ${response.status} al obtener el historial.`);
   }
 
-  // Fallback si el content-type no es ni JSON ni PDF pero la respuesta es ok (poco probable)
-  return { 
-    _id: 'ID_DESCONOCIDO', 
-    numeroCotizacion: 0, 
-    message: 'Guardado aparentemente exitoso, pero formato de respuesta no reconocido.' 
-  } as GuardarCalculoResponse;
+  return await response.json() as HistorialCalculoItem[];
+}; 
+
+// Función para obtener un historial de cálculo específico por ID
+export const getCalculoHistorialById = async (id: string): Promise<HistorialCalculoItem> => {
+  const response = await fetch(`/api/calculo-historial/${id}`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    console.error(`[calculoHistorialService] Error API obteniendo historial por ID (${id}):`, errorData);
+    throw new Error(errorData.message || `Error ${response.status} al obtener el historial ${id}.`);
+  }
+
+  return await response.json() as HistorialCalculoItem;
 }; 

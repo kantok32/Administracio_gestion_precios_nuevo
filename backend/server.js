@@ -64,7 +64,7 @@ const initializeServer = async () => {
     // app.use('/api', costosRoutes); // REMOVE THIS LINE
     // Registrar las nuevas rutas de Langchain
     app.use('/api/langchain', langchainRoutes);
-    app.use('/api/calculos-historial', calculoHistorialRoutes);
+    app.use('/api/calculo-historial', calculoHistorialRoutes);
     // app.use('/api/webhook', webhookRoutes); // <-- Comentar ya que no existe
     
     // Inicializar caché

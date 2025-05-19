@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, X, ArrowLeft, ArrowRight, Check, Settings, Eye, List, Loader2, LayoutDashboard, FileCog, Users, Menu, Bell, User, SlidersHorizontal, ChevronDown, ChevronUp, UploadCloud, LogOut } from 'lucide-react';
+import { Search, Filter, X, ArrowLeft, ArrowRight, Check, Settings, Eye, List, Loader2, LayoutDashboard, FileCog, Users, Menu, Bell, User, SlidersHorizontal, ChevronDown, ChevronUp, UploadCloud, LogOut, History } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import ecoAllianceLogo from './assets/Logotipo_EAX-EA.png';
@@ -294,14 +294,19 @@ export default function App() {
 
   // Función para obtener el estilo del enlace dinámicamente
   const getLinkStyle = (path: string, isSubItem: boolean = false): LinkStyle => {
-    const isActive = location.pathname === path;
-    // Highlight parent admin link if any admin route is active
-    const isAdminParentActive = path === '/admin' && location.pathname.startsWith('/admin');
-    
+    const isActive = location.pathname === path || (path !== '/' && location.pathname.startsWith(path) && !isSubItem) || (isSubItem && location.pathname === path) ;
     return {
-      ...navLinkBaseStyle,
-      ...(isActive || (isAdminParentActive && !isSubItem) ? navLinkActiveStyle : {}),
-      paddingLeft: isSubItem ? '30px' : '15px', // Adjust base padding for subitems
+      display: 'flex',
+      alignItems: 'center',
+      padding: `10px ${isSubItem ? '30px' : '20px'}`,
+      textDecoration: 'none',
+      color: isActive ? theme.palette.primary.main : '#4B5563', // Color primario si activo, gris oscuro si no
+      backgroundColor: isActive ? '#E3F2FD' : 'transparent', // Fondo azul claro si activo
+      borderLeft: isActive ? `3px solid ${theme.palette.primary.main}` : '3px solid transparent',
+      paddingLeft: isActive ? (isSubItem ? '27px' : '17px') : (isSubItem ? '30px' : '20px'),
+      marginBottom: '4px', // Pequeño espacio entre ítems
+      borderRadius: '0 4px 4px 0', // Bordes redondeados a la derecha
+      transition: 'background-color 0.2s ease, color 0.2s ease',
     };
   };
 
@@ -354,10 +359,16 @@ export default function App() {
                    DASHBOARD
                  </div>
               </Link>
-              <Link to="/" style={getLinkStyle('/')}>
+              <Link to="/equipos" style={getLinkStyle('/equipos')}>
                  <div style={navLinkTextStyle}> 
-                   <Menu size={18} style={navIconStyle} /> 
+                   <SlidersHorizontal size={18} style={navIconStyle} /> 
                    EQUIPOS
+                 </div>
+              </Link>
+              <Link to="/historial" style={getLinkStyle('/historial')}>
+                 <div style={navLinkTextStyle}> 
+                   <History size={18} style={navIconStyle} /> 
+                   HISTORIAL
                  </div>
               </Link>
               <Link 

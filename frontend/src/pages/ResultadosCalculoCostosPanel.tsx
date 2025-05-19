@@ -527,11 +527,17 @@ export default function ResultadosCalculoCostosPanel() {
     const resultadosParaGuardar = transformarLineasParaConfiguracion(nuevasLineasConDetalles, currentProfileData.nombre_perfil);
     setLatestCalculatedResults(resultadosParaGuardar);
 
-    const cotizacionDetailsMinimos: CotizacionDetails = {
-        clienteNombre: null, 
-        empresaQueCotiza: "Nombre Empresa Ejemplo", // TODO: Obtener de configuración global o datos de usuario
-        emisorNombre: undefined,
+    // TODO: Ajustar la obtención de cotizacionDetails. 
+    // Por ahora, usamos valores por defecto o derivados del perfil actual.
+    const cotizacionDetailsParaGuardar: CotizacionDetails = {
+        clienteNombre: null, // Anteriormente: state?.configuracionData?.clienteNombre || null,
+        emisorNombre: currentProfileData?.nombre_perfil || "Emisor Perfil Defecto", 
+        empresaQueCotiza: "Tu Empresa S.A.", // Anteriormente: state?.configuracionData?.empresaQueCotiza || "Empresa Por Defecto",
+        // referenciaDocumento: undefined, // Anteriormente: state?.configuracionData?.referenciaDocumento || undefined,
     };
+    
+    const nombreReferenciaOpcional = `Cálculo auto ${new Date().toLocaleDateString()}`;
+
 
     if (!state.productosConOpcionalesSeleccionados) {
         setIsSaving(false);
@@ -540,35 +546,33 @@ export default function ResultadosCalculoCostosPanel() {
         return;
     }
 
-    const payload = {
-        itemsParaCotizar: state.productosConOpcionalesSeleccionados, 
-        resultadosCalculados: resultadosParaGuardar,
-        selectedProfileId: currentProfileData._id,
-        nombrePerfil: currentProfileData.nombre_perfil,
+    const payloadParaGuardar = {
+        itemsParaCotizar: state.productosConOpcionalesSeleccionados.map(item => ({ 
+          principal: item.principal,
+          opcionales: item.opcionales,
+        })),
+        resultadosCalculados: resultadosParaGuardar, 
+        cotizacionDetails: cotizacionDetailsParaGuardar,
+        nombreReferencia: nombreReferenciaOpcional,
+        // Añadiendo campos requeridos por GuardarCalculoPayload
+        selectedProfileId: currentProfileData?._id || "", // Añadido fallback
+        nombrePerfil: currentProfileData?.nombre_perfil || "Perfil No Especificado", // Añadido fallback
         anoEnCursoGlobal: anoActualGlobal,
-        cotizacionDetails: cotizacionDetailsMinimos,
     };
 
-    console.log('[ResultadosCalculoCostosPanel] Payload para guardar:', JSON.stringify(payload, null, 2));
-    // For more detailed inspection if stringify hides something:
-    console.log('[ResultadosCalculoCostosPanel] itemsParaCotizar:', state.productosConOpcionalesSeleccionados);
-    console.log('[ResultadosCalculoCostosPanel] resultadosCalculados:', resultadosParaGuardar);
-    console.log('[ResultadosCalculoCostosPanel] cotizacionDetails:', cotizacionDetailsMinimos);
-
     try {
-      const respuestaGuardado = await guardarCalculoHistorial(payload);
-      const numeroCot = respuestaGuardado.numeroCotizacion;
-      const calculoId = respuestaGuardado._id;
-
-      setSaveSuccessMessage(numeroCot ? `Cálculo guardado con N° de Cotización: ${numeroCot}` : (respuestaGuardado.message || "Cálculo guardado exitosamente."));
-      setSavedCalculoId(calculoId); 
+      console.log("[ResultadosCalculoCostosPanel] Enviando payload a /api/calculo-historial/guardar:", payloadParaGuardar);
+      const guardado: any = await guardarCalculoHistorial(payloadParaGuardar);
+      
+      setSaveSuccessMessage(guardado.message || "Cálculo guardado exitosamente!");
+      setSavedCalculoId(guardado.data?._id || null); 
       setSaveErrorMessage(null);
     } catch (error: any) {
       console.error("[ResultadosCalculoCostosPanel] Error al guardar cálculo:", error);
-      setSaveErrorMessage(error.message || "No se pudo guardar el cálculo.");
+      setSaveErrorMessage(error.response?.data?.message || error.message || "Error al guardar el cálculo.");
       setSaveSuccessMessage(null);
     } finally {
-      setIsCalculating(false); 
+      setIsCalculating(false);
       setIsSaving(false);
     }
   };

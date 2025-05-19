@@ -1,6 +1,6 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
-import { BrowserRouter, Routes, Route, Outlet, NavLink, useLocation } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Outlet, NavLink, useLocation, Navigate } from 'react-router-dom'
 import { AnimatePresence, motion } from 'framer-motion'
 import './index.css'
 import App from './App.tsx'
@@ -16,6 +16,8 @@ import ConfiguracionPanel from './pages/ConfiguracionPanel'
 import ConfigurarOpcionalesPanel from './pages/ConfigurarOpcionalesPanel'
 import ResumenCargaPanel from './pages/ResumenCargaPanel'
 import LoginPage from './pages/LoginPage'
+import HistorialPage from './pages/HistorialPage'
+import HistorialDetallePage from './pages/HistorialDetallePage'
 // import DetallesEnvioPanel from './pages/DetallesEnvioPanel'; // Comentado si no se usa directamente aquí
 
 // Forzar modo claro
@@ -69,6 +71,8 @@ const AnimatedRoutes = () => {
           <Route path="configuracion-panel" element={<AnimatedPage><ConfiguracionPanel /></AnimatedPage>} />
           <Route path="configurar-opcionales" element={<AnimatedPage><ConfigurarOpcionalesPanel /></AnimatedPage>} />
           <Route path="resumen-carga" element={<AnimatedPage><ResumenCargaPanel /></AnimatedPage>} />
+          <Route path="historial" element={<AnimatedPage><HistorialPage /></AnimatedPage>} />
+          <Route path="historial/:id" element={<AnimatedPage><HistorialDetallePage /></AnimatedPage>} />
         </Route>
       </Routes>
     </AnimatePresence>

@@ -1,8 +1,9 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const ContadorConfiguracionSchema = new mongoose.Schema({
-    _id: { type: String, required: true }, // e.g., 'configuracionCounter'
-    secuencia: { type: Number, default: 0 }
+const ContadorConfiguracionSchema = new Schema({
+    _id: { type: String, required: true }, // Un ID fijo para el documento contador, ej: 'configuracionCounter'
+    secuencia: { type: Number, default: 0 } // El valor actual de la secuencia
 });
 
 // Asegurarse de que el contador se inicialice si no existe la primera vez.

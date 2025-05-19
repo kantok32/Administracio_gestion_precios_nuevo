@@ -1,12 +1,13 @@
 const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
 
-const ProductoSchema = new mongoose.Schema({
+const ProductoSchema = new Schema({
     codigo_producto: String,
     nombre_del_producto: String,
     Descripcion: String,
     Modelo: String,
     categoria: String,
-    pf_eur: mongoose.Schema.Types.Mixed, // Puede ser string o number
+    pf_eur: Schema.Types.Mixed, // Puede ser string o number
     datos_contables: {
         costo_fabrica: Number,
         divisa_costo: String,
@@ -15,13 +16,13 @@ const ProductoSchema = new mongoose.Schema({
     }
 }, { _id: false });
 
-const ProductoConOpcionalesSchema = new mongoose.Schema({
+const ProductoConOpcionalesSchema = new Schema({
     principal: ProductoSchema,
     opcionales: [ProductoSchema]
 }, { _id: false });
 
 // Definición más explícita y anidada para GroupedPruebaResultsSchema
-const CostoProductoDetalleSchema = new mongoose.Schema({
+const CostoProductoDetalleSchema = new Schema({
     factorActualizacion: Number,
     costoFabricaActualizadoEUR: Number,
     costoFinalFabricaEUR_EXW: Number,
@@ -29,7 +30,7 @@ const CostoProductoDetalleSchema = new mongoose.Schema({
     costoFinalFabricaUSD_EXW: Number
 }, { _id: false });
 
-const LogisticaSeguroDetalleSchema = new mongoose.Schema({
+const LogisticaSeguroDetalleSchema = new Schema({
     costosOrigenUSD: Number,
     costoTotalFleteManejosUSD: Number,
     baseParaSeguroUSD: Number,
@@ -37,7 +38,7 @@ const LogisticaSeguroDetalleSchema = new mongoose.Schema({
     totalTransporteSeguroEXW_USD: Number
 }, { _id: false });
 
-const ImportacionDetalleSchema = new mongoose.Schema({
+const ImportacionDetalleSchema = new Schema({
     valorCIF_USD: Number,
     derechoAdvaloremUSD: Number,
     baseIvaImportacionUSD: Number,
@@ -45,26 +46,26 @@ const ImportacionDetalleSchema = new mongoose.Schema({
     totalCostosImportacionDutyFeesUSD: Number
 }, { _id: false });
 
-const LandedCostDetalleSchema = new mongoose.Schema({
+const LandedCostDetalleSchema = new Schema({
     transporteNacionalUSD: Number,
     precioNetoCompraBaseUSD_LandedCost: Number
 }, { _id: false });
 
-const ConversionMargenDetalleSchema = new mongoose.Schema({
+const ConversionMargenDetalleSchema = new Schema({
     tipoCambioUsdClpAplicado: Number,
     precioNetoCompraBaseCLP: Number,
     margenCLP: Number,
     precioVentaNetoCLP: Number
 }, { _id: false });
 
-const PreciosClienteDetalleSchema = new mongoose.Schema({
+const PreciosClienteDetalleSchema = new Schema({
     precioNetoVentaFinalCLP: Number,
     ivaVentaCLP: Number,
     precioVentaTotalClienteCLP: Number
 }, { _id: false });
 
 
-const GroupedPruebaResultsSchema = new mongoose.Schema({
+const GroupedPruebaResultsSchema = new Schema({
     costo_producto: CostoProductoDetalleSchema,
     logistica_seguro: LogisticaSeguroDetalleSchema,
     importacion: ImportacionDetalleSchema,
@@ -73,73 +74,67 @@ const GroupedPruebaResultsSchema = new mongoose.Schema({
     precios_cliente: PreciosClienteDetalleSchema,
 }, { _id: false });
 
-const CalculationResultSchema = new mongoose.Schema({
-    inputs: mongoose.Schema.Types.Mixed, // Objeto flexible, considerar definir si es estable
+const CalculationResultSchema = new Schema({
+    inputs: Schema.Types.Mixed, // Objeto flexible, considerar definir si es estable
     calculados: GroupedPruebaResultsSchema,
     error: String
 }, { _id: false });
 
-const CalculoHistorialSchema = new mongoose.Schema({
-    fechaGuardado: {
-        type: Date,
-        default: Date.now
-    },
-    itemsParaCotizar: [ProductoConOpcionalesSchema],
-    resultadosCalculados: {
-        type: Map,
-        of: CalculationResultSchema // La clave del Map será el código_producto (string)
-    },
-    selectedProfileId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'CostoPerfil', // Asegúrate que 'CostoPerfil' es el nombre correcto del modelo
-        default: null
-    },
-    nombrePerfil: String,
-    anoEnCursoGlobal: Number,
-    usuarioId: { // Opcional, si se implementa autenticación para esta acción
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'User' // Asegúrate que 'User' es el nombre correcto del modelo
-    },
+// Sub-esquema para los detalles de la cotización
+const CotizacionDetailsSchema = new Schema({
+  clienteNombre: {
+    type: String,
+    default: null
+  },
+  emisorNombre: {
+    type: String,
+    default: null
+  },
+  empresaQueCotiza: {
+    type: String,
+    default: null
+  },
+  // Puedes añadir más campos aquí si son necesarios para cotizacionDetails
+}, { _id: false }); // _id: false para no crear IDs para este subdocumento si no es necesario
 
-    // Campos de la cotización desde ConfiguracionPanel.tsx
-    empresaQueCotiza: { type: String, default: 'Nombre de tu Empresa Aquí' }, // Configurable
-    
-    // Datos del Cliente
-    clienteNombre: { type: String, required: false },
-    clienteRut: { type: String, required: false },
-    clienteDireccion: { type: String, required: false },
-    clienteComuna: { type: String, required: false },
-    clienteCiudad: { type: String, required: false },
-    clientePais: { type: String, required: false },
-    clienteContactoNombre: { type: String, required: false },
-    clienteContactoEmail: { type: String, required: false },
-    clienteContactoTelefono: { type: String, required: false },
-
-    // Datos del Documento (Cotización)
-    numeroCotizacion: { type: String, required: false }, // Podría ser generado
-    referenciaDocumento: { type: String, required: false },
-    fechaCreacionCotizacion: { type: Date, default: Date.now }, // Específico para la cotización
-    fechaCaducidadCotizacion: { type: Date, required: false },
-
-    // Datos del Emisor (Vendedor)
-    emisorNombre: { type: String, required: false },
-    emisorAreaComercial: { type: String, required: false },
-    emisorEmail: { type: String, required: false },
-
-    // Comentarios y Términos
-    comentariosAdicionales: { type: String, required: false },
-    terminosPago: { type: String, required: false },
-    medioPago: { type: String, required: false },
-    formaPago: { type: String, required: false },
-
-    // Campos que ya estaban y se renombraron/integraron:
-    // nombreCliente -> clienteNombre o clienteContactoNombre
-    // numeroCliente -> clienteContactoTelefono
-    // emailCliente -> clienteContactoEmail
-    // comentariosAdicionales -> ya está arriba
-
-}, {
-    timestamps: true // Agrega createdAt y updatedAt automáticamente
+const CalculoHistorialSchema = new Schema({
+  itemsParaCotizar: {
+    type: [Schema.Types.Mixed], // Array de objetos con estructura variable
+    required: true
+  },
+  resultadosCalculados: {
+    type: Schema.Types.Mixed, // Objeto con estructura variable
+    required: true
+  },
+  cotizacionDetails: {
+    type: CotizacionDetailsSchema,
+    required: false // O true, según tu lógica
+  },
+  nombreReferencia: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  numeroConfiguracion: {
+    type: Number,
+    required: true, // Hacerlo requerido para asegurar que siempre exista
+    // unique: true, // Descomentar si quieres forzar unicidad a nivel de DB, pero la lógica de incremento debería asegurarlo
+  },
+  nombrePerfil: {
+    type: String,
+    trim: true,
+    default: null
+  },
+  // Considerar añadir un ID de usuario si tienes autenticación
+  // userId: {
+  //   type: mongoose.Schema.Types.ObjectId,
+  //   ref: 'User', // Asumiendo que tienes un modelo User
+  //   required: false // o true si siempre debe estar asociado a un usuario
+  // },
+  createdAt: {
+    type: Date,
+    default: Date.now
+  }
 });
 
 module.exports = mongoose.model('CalculoHistorial', CalculoHistorialSchema); 
