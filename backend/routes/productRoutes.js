@@ -28,6 +28,9 @@ router.get('/code/:codigoProducto', productController.getProductByCodeController
 // --- NUEVA RUTA para actualizar un producto por Codigo_Producto ---
 router.put('/code/:codigoProducto', productController.updateProductController);
 
+// --- NUEVA RUTA para actualizar el estado descontinuado de un producto ---
+router.put('/code/:codigoProducto/toggle-discontinued', productController.toggleProductDiscontinuedStatus);
+
 // --- NUEVA RUTA para eliminar un producto por Codigo_Producto ---
 router.delete('/code/:codigoProducto', productController.deleteProductController);
 

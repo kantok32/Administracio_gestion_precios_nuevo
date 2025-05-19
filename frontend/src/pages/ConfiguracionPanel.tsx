@@ -21,16 +21,6 @@ interface LocationStateFromPrevPage {
 
 // Estado para los nuevos datos del formulario
 interface CotizacionFormData {
-  // Cliente
-  clienteNombre: string;
-  clienteRut: string;
-  clienteDireccion: string;
-  clienteComuna: string;
-  clienteCiudad: string;
-  clientePais: string;
-  clienteContactoNombre: string;
-  clienteContactoEmail: string;
-  clienteContactoTelefono: string;
   // Documento
   numeroCotizacion: string;
   referenciaDocumento: string; // Opcional
@@ -40,11 +30,8 @@ interface CotizacionFormData {
   emisorNombre: string; // Nombre del creador del presupuesto
   emisorAreaComercial: string;
   emisorEmail: string; // Email del creador (asumo)
-  // Comentarios y Términos
+  // Comentarios
   comentariosAdicionales: string;
-  terminosPago: string;
-  medioPago: string;
-  formaPago: string;
 }
 
 export default function ConfiguracionPanel() {
@@ -53,26 +40,14 @@ export default function ConfiguracionPanel() {
   const [isLoading, setIsLoading] = useState(false);
   const [calculosData, setCalculosData] = useState<LocationStateFromPrevPage | null>(null);
   const [formData, setFormData] = useState<CotizacionFormData>({
-    clienteNombre: '',
-    clienteRut: '',
-    clienteDireccion: '',
-    clienteComuna: '',
-    clienteCiudad: 'Chile', // Default a Chile
-    clientePais: '',
-    clienteContactoNombre: '',
-    clienteContactoEmail: '',
-    clienteContactoTelefono: '',
     numeroCotizacion: '', // Podría ser generado o sugerido
     referenciaDocumento: '',
     fechaCreacion: new Date().toISOString().split('T')[0],
     fechaCaducidad: new Date(new Date().setDate(new Date().getDate() + 30)).toISOString().split('T')[0], // Default a 30 días
-    emisorNombre: '', // ¿Obtener de usuario logueado si es posible en el futuro?
-    emisorAreaComercial: 'Comercial', // Default
-    emisorEmail: '',
+    emisorNombre: 'ADMIN', // <--- VALOR POR DEFECTO
+    emisorAreaComercial: 'Ecoalliance', // <--- VALOR POR DEFECTO
+    emisorEmail: 'Ecoalliance33@gmail.com', // <--- VALOR POR DEFECTO
     comentariosAdicionales: '',
-    terminosPago: '50% Anticipado, 50% Contraentrega', // Default
-    medioPago: 'Transferencia Bancaria', // Default
-    formaPago: 'Contrafactura', // Default
   });
 
   useEffect(() => {
@@ -132,7 +107,7 @@ export default function ConfiguracionPanel() {
       const a = document.createElement('a');
       a.href = url;
       // Construir un nombre de archivo más descriptivo
-      const nombreArchivo = `Configuracion_${formData.numeroCotizacion || 'Calculo'}_${formData.clienteNombre || 'Cliente'}_${new Date().toISOString().split('T')[0]}.pdf`;
+      const nombreArchivo = `Configuracion_${formData.numeroCotizacion || 'Calculo'}_${new Date().toISOString().split('T')[0]}.pdf`;
       a.download = nombreArchivo.replace(/[^a-z0-9_.-]/gi, '_'); // Sanitizar nombre de archivo
       document.body.appendChild(a);
       a.click();
@@ -164,20 +139,6 @@ export default function ConfiguracionPanel() {
           Configurar Datos
         </Typography>
 
-        {/* SECCIÓN DATOS DEL CLIENTE */}
-        <Typography variant="h6" sx={sectionTitleStyle}>Datos del Cliente</Typography>
-        <Grid container spacing={2}>
-          <Grid item xs={12} sm={6}><TextField fullWidth label="Nombre Cliente/Empresa" name="clienteNombre" value={formData.clienteNombre} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={6}><TextField fullWidth label="RUT/ID Cliente" name="clienteRut" value={formData.clienteRut} onChange={handleChange} /></Grid>
-          <Grid item xs={12}><TextField fullWidth label="Dirección (Calle, Número, Depto)" name="clienteDireccion" value={formData.clienteDireccion} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Comuna" name="clienteComuna" value={formData.clienteComuna} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Ciudad" name="clienteCiudad" value={formData.clienteCiudad} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="País" name="clientePais" value={formData.clientePais} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Nombre Contacto" name="clienteContactoNombre" value={formData.clienteContactoNombre} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Email Contacto" name="clienteContactoEmail" type="email" value={formData.clienteContactoEmail} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Teléfono Contacto" name="clienteContactoTelefono" value={formData.clienteContactoTelefono} onChange={handleChange} /></Grid>
-        </Grid>
-
         {/* SECCIÓN DATOS DEL EMISOR */}
         <Typography variant="h6" sx={sectionTitleStyle}>Datos del Emisor</Typography>
         <Grid container spacing={2}>
@@ -186,24 +147,33 @@ export default function ConfiguracionPanel() {
           <Grid item xs={12} sm={4}><TextField fullWidth label="Email Emisor" name="emisorEmail" type="email" value={formData.emisorEmail} onChange={handleChange} /></Grid>
         </Grid>
 
-        {/* SECCIÓN COMENTARIOS Y TÉRMINOS */}
-        <Typography variant="h6" sx={sectionTitleStyle}>Comentarios y Condiciones</Typography>
+        {/* SECCIÓN COMENTARIOS Y CONDICIONES MODIFICADA */}
+        <Typography variant="h6" sx={sectionTitleStyle}>Comentarios Adicionales</Typography>
         <Grid container spacing={2}>
           <Grid item xs={12}>
-            <Typography variant="subtitle2" gutterBottom>Comentarios Adicionales</Typography>
-            <TextareaAutosize minRows={3} style={{ width: '100%', padding: '8px', borderColor: '#ccc', borderRadius: '4px' }} name="comentariosAdicionales" value={formData.comentariosAdicionales} onChange={handleChange} />
+            <TextareaAutosize minRows={3} style={{ width: '100%', padding: '8px', borderColor: '#ccc', borderRadius: '4px' }} name="comentariosAdicionales" value={formData.comentariosAdicionales} onChange={handleChange} placeholder="Ingrese comentarios adicionales aquí..."/>
           </Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Términos de Pago" name="terminosPago" value={formData.terminosPago} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Medio de Pago" name="medioPago" value={formData.medioPago} onChange={handleChange} /></Grid>
-          <Grid item xs={12} sm={4}><TextField fullWidth label="Forma de Pago" name="formaPago" value={formData.formaPago} onChange={handleChange} /></Grid>
         </Grid>
 
         {/* Resumen de Items (Solo para visualización, no editable aquí) */}
         <Typography variant="h6" sx={sectionTitleStyle}>Resumen de Equipos Calculados</Typography>
         {calculosData.itemsParaCotizar.map((item, index) => (
-            <Box key={item.principal.codigo_producto || `item-${index}`} sx={{ mb: 1, p:1, border: '1px solid #eee', borderRadius: '4px'}}>
-                <Typography variant="subtitle1">{item.principal.nombre_del_producto || 'Equipo sin nombre'}</Typography>
-                {/* Aquí podrías mostrar un resumen muy breve si es necesario, o el precio calculado */}
+            <Box key={item.principal.codigo_producto || `item-${index}`} sx={{ mb: 2, p:1.5, border: '1px solid #eee', borderRadius: '4px'}}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                  {item.principal.nombre_del_producto || 'Equipo sin nombre'}
+                </Typography>
+                {item.opcionales && item.opcionales.length > 0 && (
+                  <Box sx={{ pl: 2, mt: 0.5, fontSize: '0.9rem' }}>
+                    <Typography variant="body2" sx={{ fontStyle: 'italic', color: 'text.secondary' }}>Opcionales:</Typography>
+                    <ul style={{ margin: 0, paddingLeft: '20px' }}>
+                      {item.opcionales.map((opcional, opIndex) => (
+                        <li key={opcional.codigo_producto || `op-${index}-${opIndex}`}>
+                          {opcional.nombre_del_producto || 'Opcional sin nombre'}
+                        </li>
+                      ))}
+                    </ul>
+                  </Box>
+                )}
             </Box>
         ))}
         <Typography variant="body2" color="textSecondary" sx={{mt:1}}>

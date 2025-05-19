@@ -23,6 +23,7 @@ const { port } = require('./config/env');
 // const PricingOverride = require('./models/PricingOverride'); // REMOVE THIS LINE
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 const calculoHistorialRoutes = require('./routes/calculoHistorialRoutes');
+const currencyRoutes = require('./routes/currencyRoutes');
 
 dotenv.config();
 
@@ -52,6 +53,7 @@ const initializeServer = async () => {
     // Configuración de rutas
     app.use('/api/users', userRoutes);
     app.use('/api/products', productRoutes);
+    app.use('/api/currency', currencyRoutes);
     // Usar la ruta correcta para perfiles
     // app.use('/api/perfiles', perfilesRoutes);
     // Registrar la nueva ruta para perfiles de costo

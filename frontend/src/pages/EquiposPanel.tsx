@@ -242,6 +242,7 @@ export default function EquiposPanel() {
   const [vistaOpcionalesError, setVistaOpcionalesError] = useState<string | null>(null);
   const [loadingOpcionalesBtn, setLoadingOpcionalesBtn] = useState<string | null>(null);
   const [loadingDescontinuado, setLoadingDescontinuado] = useState<string | null>(null);
+  const [errorDescontinuado, setErrorDescontinuado] = useState<Record<string, string | null>>({}); // Para errores por producto
 
   const [showEditModal, setShowEditModal] = useState<boolean>(false);
   const [equipoParaEditar, setEquipoParaEditar] = useState<Producto | null>(null);
@@ -669,54 +670,49 @@ export default function EquiposPanel() {
   const handleToggleDescontinuado = async (productoAActualizar: Producto) => {
     if (!productoAActualizar.codigo_producto) {
       console.error("El producto no tiene código para actualizar su estado de descontinuado.");
-      // Podrías mostrar una notificación de error aquí
+      setErrorDescontinuado(prev => ({ ...prev, [productoAActualizar._id || 'unknown']: 'Producto sin código.' }));
       return;
     }
 
-    setLoadingDescontinuado(productoAActualizar.codigo_producto);
+    const codigoProducto = productoAActualizar.codigo_producto;
+    setLoadingDescontinuado(codigoProducto);
+    setErrorDescontinuado(prev => ({ ...prev, [codigoProducto]: null })); // Limpiar error previo
     const nuevoEstadoDescontinuado = !productoAActualizar.descontinuado;
 
-    console.log(`Simulando actualización para ${productoAActualizar.codigo_producto}: descontinuado = ${nuevoEstadoDescontinuado}`);
+    try {
+      const response = await fetch(`/api/products/code/${codigoProducto}/toggle-discontinued`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ descontinuado: nuevoEstadoDescontinuado }),
+      });
 
-    // --- INICIO: Simulación de llamada API ---
-    // En un caso real, aquí harías la llamada a tu backend:
-    // try {
-    //   const response = await fetch(`/api/products/code/${productoAActualizar.codigo_producto}/toggle-discontinued`, { // O el endpoint que tengas
-    //     method: 'PUT', // o 'PATCH'
-    //     headers: { 'Content-Type': 'application/json' },
-    //     body: JSON.stringify({ descontinuado: nuevoEstadoDescontinuado }),
-    //   });
-    //   if (!response.ok) {
-    //     const errorData = await response.json();
-    //     throw new Error(errorData.message || 'Error al actualizar el estado del producto.');
-    //   }
-    //   // const updatedProduct = await response.json(); // Si el backend devuelve el producto actualizado
-    //   console.log('Producto actualizado (simulado) en backend');
-    //   refreshProductos(); // O actualizar el estado local de forma más específica
-    // } catch (error) {
-    //   console.error('Error al cambiar estado descontinuado:', error);
-    //   // Mostrar notificación de error al usuario
-    // } finally {
-    //   setLoadingDescontinuado(null);
-    // }
-    // --- FIN: Simulación de llamada API ---
+      const responseData = await response.json();
 
-    // --- INICIO: Actualización local para simulación (REEMPLAZAR CON LLAMADA API REAL) ---
-    await new Promise(resolve => setTimeout(resolve, 700)); // Simular delay de red
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Error al actualizar el estado del producto.');
+      }
+      
+      // Actualizar el estado local con la respuesta del backend (o simplemente el nuevo estado)
+      // Es mejor si el backend devuelve el producto actualizado completo para mayor consistencia.
+      setProductosOriginales(prev => 
+        prev.map(p => 
+          p.codigo_producto === codigoProducto 
+            ? { ...p, ...responseData.data, descontinuado: nuevoEstadoDescontinuado, caracteristicas: {...p.caracteristicas, ...responseData.data?.caracteristicas, descontinuado: nuevoEstadoDescontinuado} } // Asegurar que el estado local refleje la estructura de la BD
+            : p
+        )
+      );
+      // setProductos se actualizará por el useEffect que depende de productosOriginales.
 
-    setProductosOriginales(prev => 
-      prev.map(p => 
-        p.codigo_producto === productoAActualizar.codigo_producto 
-          ? { ...p, descontinuado: nuevoEstadoDescontinuado } 
-          : p
-      )
-    );
-    // Nota: setProductos se actualizará automáticamente por el useEffect que depende de productosOriginales.
-    
-    setLoadingDescontinuado(null);
-    console.log(`Estado local de ${productoAActualizar.codigo_producto} cambiado a descontinuado: ${nuevoEstadoDescontinuado}`);
-    // Aquí podrías mostrar una notificación de éxito
-    // --- FIN: Actualización local para simulación ---
+      // Opcional: Mostrar notificación de éxito
+      console.log(`Estado descontinuado de ${codigoProducto} actualizado a ${nuevoEstadoDescontinuado} en backend y localmente.`);
+
+    } catch (error: any) {
+      console.error(`Error al cambiar estado descontinuado para ${codigoProducto}:`, error);
+      setErrorDescontinuado(prev => ({ ...prev, [codigoProducto]: error.message || 'Error de red' }));
+      // Opcional: Mostrar notificación de error al usuario
+    } finally {
+      setLoadingDescontinuado(null);
+    }
   };
 
   const handleEliminarPrincipalDeCarga = (codigoPrincipalAEliminar: string) => {

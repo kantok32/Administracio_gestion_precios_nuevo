@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const caracteristicasSchema = new mongoose.Schema({
     nombre_del_producto: { type: String, /* required: [true, 'El nombre del producto es obligatorio.'], */ trim: true },
     modelo: { type: String, required: [true, 'El modelo es obligatorio.'], trim: true },
+    fecha_cotizacion: { type: String },
+    descontinuado: { type: Boolean, default: false },
     // Añade otros campos si existen dentro de caracteristicas
 }, { _id: false });
 
@@ -19,8 +21,7 @@ const dimensionesSchema = new mongoose.Schema({
 const datosContablesSchema = new mongoose.Schema({
     costo_fabrica: { type: Number },
     divisa_costo: { type: String, trim: true, default: 'EUR' },
-    fecha_cotizacion: { type: String },
-    costo_ano_cotizacion: { type: Number } // Se mantiene por si es usado, aunque fecha_cotizacion es más específico
+    costo_ano_cotizacion: { type: Number }
 }, { _id: false });
 // <<<------------------------------------------------------->>>
 

@@ -1332,6 +1332,61 @@ const uploadBulkProductsPlain = async (req, res) => {
   }
 };
 
+// @desc    Actualizar el estado "descontinuado" de un producto
+// @route   PUT /api/products/code/:codigoProducto/toggle-discontinued
+// @access  Private (debería serlo eventualmente)
+const toggleProductDiscontinuedStatus = async (req, res) => {
+  const { codigoProducto } = req.params;
+  const { descontinuado } = req.body; // Esperamos un booleano: true o false
+
+  if (typeof descontinuado !== 'boolean') {
+    return res.status(400).json({ message: 'El estado "descontinuado" debe ser un valor booleano.' });
+  }
+
+  try {
+    const product = await Producto.findOne({ Codigo_Producto: codigoProducto });
+
+    if (!product) {
+      return res.status(404).json({ message: 'Producto no encontrado.' });
+    }
+
+    // Asegurar que el subdocumento caracteristicas exista
+    if (!product.caracteristicas) {
+      product.caracteristicas = {};
+    }
+    product.caracteristicas.descontinuado = descontinuado;
+    
+    // Si también se necesita actualizar fecha_cotizacion aquí, se haría de forma similar:
+    // if (req.body.fecha_cotizacion) { // Asumiendo que viene en el body
+    //   product.caracteristicas.fecha_cotizacion = req.body.fecha_cotizacion;
+    // }
+
+    const updatedProduct = await product.save();
+
+    // Actualizar el caché local si se está usando para este producto
+    const cacheIndex = cachedProducts.findIndex(p => p.Codigo_Producto === codigoProducto || p.codigo_producto === codigoProducto);
+    if (cacheIndex !== -1) {
+        // Asegurar que el objeto en caché tenga la estructura correcta
+        if (!cachedProducts[cacheIndex].caracteristicas) {
+            cachedProducts[cacheIndex].caracteristicas = {};
+        }
+        cachedProducts[cacheIndex].caracteristicas.descontinuado = descontinuado;
+        // Si también se actualiza `descontinuado` a nivel raíz en el caché (para compatibilidad frontend actual)
+        cachedProducts[cacheIndex].descontinuado = descontinuado; 
+        saveCacheToDisk(); 
+    }
+
+    res.status(200).json({
+      message: 'Estado descontinuado del producto actualizado correctamente.',
+      data: updatedProduct
+    });
+
+  } catch (error) {
+    console.error('Error al actualizar estado descontinuado del producto:', error);
+    res.status(500).json({ message: error.message || 'Error interno del servidor' });
+  }
+};
+
 module.exports = { 
   fetchProducts, 
   getCachedProducts, 
@@ -1352,5 +1407,6 @@ module.exports = {
   testGetBaseProductsFromDBController,
   uploadTechnicalSpecifications,
   uploadBulkProductsMatrix: uploadBulkProductsMatrixDetailed,
-  uploadBulkProductsPlain
+  uploadBulkProductsPlain,
+  toggleProductDiscontinuedStatus
 };

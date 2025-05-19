@@ -15,6 +15,7 @@ import ResultadosCalculoCostosPanel from './pages/ResultadosCalculoCostosPanel'
 import ConfiguracionPanel from './pages/ConfiguracionPanel'
 import ConfigurarOpcionalesPanel from './pages/ConfigurarOpcionalesPanel'
 import ResumenCargaPanel from './pages/ResumenCargaPanel'
+import LoginPage from './pages/LoginPage'
 // import DetallesEnvioPanel from './pages/DetallesEnvioPanel'; // Comentado si no se usa directamente aquí
 
 // Forzar modo claro
@@ -51,6 +52,7 @@ const AnimatedRoutes = () => {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}> {/* Cambiado a location.pathname para estabilidad de key */}
+        <Route path="/login" element={<AnimatedPage><LoginPage /></AnimatedPage>} />
         <Route path="/" element={<App />}>
           <Route index element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />
           <Route path="equipos" element={<AnimatedPage><EquiposPanel /></AnimatedPage>} />

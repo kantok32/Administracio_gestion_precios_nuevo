@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, Filter, X, ArrowLeft, ArrowRight, Check, Settings, Eye, List, Loader2, LayoutDashboard, FileCog, Users, Menu, Bell, User, SlidersHorizontal, ChevronDown, ChevronUp, UploadCloud } from 'lucide-react';
+import { Search, Filter, X, ArrowLeft, ArrowRight, Check, Settings, Eye, List, Loader2, LayoutDashboard, FileCog, Users, Menu, Bell, User, SlidersHorizontal, ChevronDown, ChevronUp, UploadCloud, LogOut } from 'lucide-react';
 import type { LucideProps } from 'lucide-react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import ecoAllianceLogo from './assets/Logotipo_EAX-EA.png';
@@ -75,6 +75,13 @@ interface HeaderProps {
 }
 
 const Header: React.FC<HeaderProps> = ({ logoPath, sidebarWidth, headerHeight }) => {
+  const navigate = useNavigate(); // Hook para navegación
+
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    navigate('/login');
+  };
+
   const headerStyle: React.CSSProperties = {
     backgroundColor: '#ffffff', // Changed to white
     padding: '12px 24px',
@@ -155,6 +162,10 @@ const Header: React.FC<HeaderProps> = ({ logoPath, sidebarWidth, headerHeight })
            {/* Icon */} 
            <User size={24} style={{...iconStyle, color: '#4b5563'}} /> {/* Slightly larger user icon? */}
         </div>
+        {/* Botón/Icono de Cerrar Sesión envuelto para tooltip */}
+        <span title="Cerrar Sesión" onClick={handleLogout} style={{ cursor: 'pointer' }}>
+          <LogOut size={20} style={iconStyle} />
+        </span>
       </div>
     </header>
   );
@@ -179,6 +190,15 @@ export default function App() {
       return false;
     }
   });
+
+  // --- Autenticación Effect ---
+  useEffect(() => {
+    const isAuthenticated = localStorage.getItem('isAuthenticated');
+    // Permitir acceso a /login incluso si no está autenticado
+    if (isAuthenticated !== 'true' && location.pathname !== '/login') {
+      navigate('/login', { replace: true });
+    }
+  }, [navigate, location.pathname]); // Se ejecuta en cada cambio de ruta para protegerla
 
   // Effect to open admin menu if navigating directly to a sub-route
   useEffect(() => {

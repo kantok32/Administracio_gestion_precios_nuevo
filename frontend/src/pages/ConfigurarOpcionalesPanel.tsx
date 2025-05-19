@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Button, Typography, Checkbox, CircularProgress, Paper, Box, Grid, IconButton, Alert, Container } from '@mui/material';
-import { ArrowLeft, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Info } from 'lucide-react';
+import { Button, Typography, Checkbox, CircularProgress, Paper, Box, Grid, IconButton, Alert, Container, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material';
+import { ArrowLeft, ArrowRight, RefreshCw, ChevronDown, ChevronUp, Info, AlertTriangle } from 'lucide-react';
 
 // --- Interfaces (muchas de estas podrían venir de un archivo de tipos global) ---
 interface Producto {
@@ -68,22 +68,44 @@ export default function ConfigurarOpcionalesPanel() {
   const [errorOpcionales, setErrorOpcionales] = useState<Record<string, string | null>>({});
   const [expandedPrincipales, setExpandedPrincipales] = useState<Record<string, boolean>>({});
 
+  // Estados para el modal de advertencia de descontinuados
+  const [showDiscontinuedWarning, setShowDiscontinuedWarning] = useState(false);
+  const [discontinuedProductName, setDiscontinuedProductName] = useState<string>('');
+
   useEffect(() => {
     if (state && state.productosPrincipales && state.productosPrincipales.length > 0) {
       setProductosPrincipales(state.productosPrincipales);
       // Inicializar opcionalesSeleccionados y expandedPrincipales
       const initialSelections: Record<string, Set<string>> = {};
       const initialExpanded: Record<string, boolean> = {};
+      let descontinuadoEncontrado = false;
+      let primerDescontinuadoNombre = '';
+
       state.productosPrincipales.forEach(p => {
         if (p.codigo_producto) {
           initialSelections[p.codigo_producto] = new Set<string>();
           initialExpanded[p.codigo_producto] = true; // Expandir todos por defecto
           // Cargar automáticamente los opcionales para cada principal
           fetchOpcionalesParaPrincipal(p);
+
+          if (p.descontinuado) {
+            descontinuadoEncontrado = true;
+            if (!primerDescontinuadoNombre) { // Tomar el nombre del primer producto descontinuado para el mensaje
+              primerDescontinuadoNombre = p.nombre_del_producto || p.codigo_producto || 'Desconocido';
+            }
+          }
         }
       });
       setOpcionalesSeleccionados(initialSelections);
       setExpandedPrincipales(initialExpanded);
+
+      if (descontinuadoEncontrado) {
+        // Si hay múltiples, el mensaje podría ser más genérico o listar todos.
+        // Por ahora, usamos el nombre del primero o un mensaje general.
+        setDiscontinuedProductName(primerDescontinuadoNombre); 
+        setShowDiscontinuedWarning(true);
+      }
+
     } else {
       // Si no hay productos principales, redirigir o mostrar mensaje
       alert("No se seleccionaron equipos para configurar opcionales. Volviendo a la selección de equipos.");
@@ -170,6 +192,10 @@ export default function ConfigurarOpcionalesPanel() {
     });
   };
 
+  const handleCloseDiscontinuedWarning = () => {
+    setShowDiscontinuedWarning(false);
+  };
+
   if (!productosPrincipales.length) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
@@ -181,6 +207,30 @@ export default function ConfigurarOpcionalesPanel() {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Modal de Advertencia para Descontinuados */}
+      <Dialog
+        open={showDiscontinuedWarning}
+        onClose={handleCloseDiscontinuedWarning}
+        aria-labelledby="discontinued-warning-title"
+        aria-describedby="discontinued-warning-description"
+      >
+        <DialogTitle id="discontinued-warning-title" sx={{ display: 'flex', alignItems: 'center' }}>
+          <AlertTriangle color="orange" style={{ marginRight: '8px' }} />
+          Advertencia
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText id="discontinued-warning-description">
+            {/* Podríamos personalizar más el mensaje si hay más de un descontinuado */}
+            El equipo "{discontinuedProductName}" (o alguno de los seleccionados) está descontinuado. Los valores y disponibilidad de opcionales pueden variar.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDiscontinuedWarning} color="primary" autoFocus>
+            Cerrar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Paper elevation={3} sx={{ p: 3 }}>
         <Typography variant="h4" gutterBottom align="center">
           Configurar Opcionales para Equipos Seleccionados

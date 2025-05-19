@@ -188,18 +188,7 @@ const generarHtmlParaPdf = (datos) => {
     const { 
         itemsParaCotizar, 
         resultadosCalculados, 
-        // nombrePerfil, // No se usa directamente en el nuevo diseño
-        // anoEnCursoGlobal, // No se usa directamente en el nuevo diseño
         empresaQueCotiza,
-        clienteNombre,
-        clienteRut,
-        clienteDireccion,
-        clienteComuna,
-        clienteCiudad,
-        clientePais,
-        clienteContactoNombre,
-        clienteContactoEmail,
-        clienteContactoTelefono,
         numeroCotizacion,
         referenciaDocumento,
         fechaCreacionCotizacion,
@@ -207,35 +196,28 @@ const generarHtmlParaPdf = (datos) => {
         emisorNombre,
         emisorAreaComercial,
         emisorEmail,
-        comentariosAdicionales,
-        terminosPago,
-        medioPago,
-        formaPago
+        comentariosAdicionales
     } = calculoHistorialCompleto; 
 
     const miEmpresa = {
         nombre: empresaQueCotiza || "Nombre de Mi Empresa S.A.",
-        rut: "76.123.456-7", // Usar el RUT real de la empresa que cotiza
-        direccion: "Av. Siempre Viva 742, Springfield", // Usar la dirección real
-        ciudad: "Santiago", // Usar ciudad real
-        pais: "Chile", // Usar país real
-        telefono: "+56 2 2123 4567", // Usar teléfono real
-        email: emisorEmail || "ventas@miempresa.cl", // Usar email real del emisor o general
-        // logoUrl: "" // No se usa logo en el diseño de EcoAlliance
+        rut: "76.123.456-7",
+        direccion: "Av. Siempre Viva 742, Springfield",
+        ciudad: "Santiago",
+        pais: "Chile",
+        telefono: "+56 2 2123 4567",
+        email: emisorEmail || "ventas@miempresa.cl",
     };
-    // Si cotizacionDetails tiene datos más específicos para 'miEmpresa', se podrían usar aquí.
-    // Por ejemplo, si cotizacionDetails.emisorRut, cotizacionDetails.emisorDireccion etc.
 
     let itemsHtml = '';
     let subtotalNetoGeneral = 0;
     
     const primerProductoPrincipal = itemsParaCotizar.length > 0 ? itemsParaCotizar[0].principal.nombre_del_producto : "Servicios Varios";
-    const tituloDocumento = `${primerProductoPrincipal} - ${clienteNombre || 'Cliente'}`;
+    const tituloDocumento = `${primerProductoPrincipal} - Cotización`;
 
     itemsParaCotizar.forEach((item, index) => {
         const productoPrincipal = item.principal;
         const keyProductoPrincipal = `principal-${productoPrincipal.codigo_producto}`;
-        // Asegurarse de que resultadosCalculados es un Map
         const calculosProductoMap = resultadosCalculados instanceof Map ? resultadosCalculados : new Map(Object.entries(resultadosCalculados));
         const calculosProducto = calculosProductoMap.get(keyProductoPrincipal);
 
@@ -243,7 +225,7 @@ const generarHtmlParaPdf = (datos) => {
         if (calculosProducto && calculosProducto.calculados && calculosProducto.calculados.precios_cliente) {
             precioUnitarioNetoPrincipal = calculosProducto.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
         }
-        const cantidadPrincipal = 1; // Asumiendo cantidad 1 por ahora
+        const cantidadPrincipal = 1;
         const totalPrincipal = precioUnitarioNetoPrincipal * cantidadPrincipal;
         subtotalNetoGeneral += totalPrincipal;
 
@@ -267,7 +249,7 @@ const generarHtmlParaPdf = (datos) => {
                 if (calculosOpcional && calculosOpcional.calculados && calculosOpcional.calculados.precios_cliente) {
                     precioNetoOpcional = calculosOpcional.calculados.precios_cliente.precioNetoVentaFinalCLP || 0;
                 }
-                const cantidadOpcional = 1; // Asumiendo cantidad 1
+                const cantidadOpcional = 1;
                 const totalOpcional = precioNetoOpcional * cantidadOpcional;
                 subtotalNetoGeneral += totalOpcional;
 
@@ -304,13 +286,13 @@ const generarHtmlParaPdf = (datos) => {
                 padding: 20px;
             }
             .container {
-                max-width: 900px; /* Ajustado para más contenido */
+                max-width: 900px; 
                 margin: auto;
-                border: 1px solid #ccc; /* Borde general sutil */
+                border: 1px solid #ccc; 
                 padding: 25px;
             }
             .header-info {
-                overflow: auto; /* Clearfix */
+                overflow: auto; 
                 margin-bottom: 30px;
                 padding-bottom: 20px;
                 border-bottom: 1px solid #eee;
@@ -328,15 +310,11 @@ const generarHtmlParaPdf = (datos) => {
             }
 
             .info-columns {
-                overflow: auto; /* Clearfix */
+                overflow: auto; 
                 margin-bottom: 20px;
             }
             .info-columns .column {
-                float: left;
-                width: 48%; /* Dos columnas con pequeño gap */
-            }
-            .info-columns .column.right {
-                float: right;
+                width: 100%;
             }
             .info-columns h3 {
                 font-size: 14px;
@@ -351,7 +329,7 @@ const generarHtmlParaPdf = (datos) => {
                 margin: 0 0 6px 0;
                 line-height: 1.5;
             }
-            .info-columns p strong { /* Para etiquetas como "Email:", "Teléfono:" */
+            .info-columns p strong { 
                 font-weight: bold;
                 color: #555;
             }
@@ -484,27 +462,19 @@ const generarHtmlParaPdf = (datos) => {
             .footer-contact strong {
                 color: #555;
             }
-            /* No page-break-before for items-table by default, to mimic example */
         </style>
     </head>
     <body>
         <div class="container">
             <div class="header-info">
-                <div class="company-rut">${miEmpresa.rut}</div>
+                <div class="company-rut">
+                    ${miEmpresa.rut}
+                </div>
                 <div class="document-title">${tituloDocumento}</div>
             </div>
 
             <div class="info-columns">
-                <div class="column left">
-                    <h3>${clienteNombre || 'Datos del Cliente'}</h3>
-                    ${clienteDireccion ? `<p>${clienteDireccion}</p>` : ''}
-                    ${(clienteComuna || clienteCiudad) ? `<p>${clienteComuna ? clienteComuna + ', ' : ''}${clienteCiudad || ''}${clientePais ? ', ' + clientePais : ''}</p>` : ''}
-                    ${clienteContactoNombre ? `<p><strong>Atención:</strong> ${clienteContactoNombre}</p>` : ''}
-                    ${clienteContactoEmail ? `<p><strong>Email:</strong> ${clienteContactoEmail}</p>` : ''}
-                    ${clienteContactoTelefono ? `<p><strong>Teléfono:</strong> ${clienteContactoTelefono}</p>` : ''}
-                    ${clienteRut ? `<p><strong>RUT:</strong> ${clienteRut}</p>` : ''}
-                </div>
-                <div class="column right">
+                <div class="column">
                     <h3>Detalles del Presupuesto</h3>
                     <p><strong>Referencia:</strong> ${referenciaDocumento || 'N/A'}</p>
                     <p><strong>Fecha Creación:</strong> ${fechaCreacionCotizacion ? new Date(fechaCreacionCotizacion).toLocaleDateString('es-CL') : 'N/A'}</p>
@@ -518,11 +488,8 @@ const generarHtmlParaPdf = (datos) => {
             </div>
 
             <div class="comments-section">
-                <h3>Comentarios ${emisorNombre ? 'de ' + emisorNombre.split(' ')[0] : ''}</h3>
+                <h3>Comentarios</h3> 
                 <p><span class="label">COTIZACIÓN Nº:</span> ${numeroCotizacion || 'N/A'}</p>
-                ${terminosPago ? `<p><span class="label">Términos de Pago:</span> ${terminosPago}</p>` : ''}
-                ${medioPago ? `<p><span class="label">Medio de Pago:</span> ${medioPago}</p>` : ''}
-                ${formaPago ? `<p><span class="label">Forma de Pago:</span> ${formaPago}</p>` : ''}
                 ${comentariosAdicionales ? `<br><p style="white-space: pre-wrap;">${comentariosAdicionales}</p>` : ''}
             </div>
 
