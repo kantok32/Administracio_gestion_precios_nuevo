@@ -1,12 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, History, Search, Filter, Clock, Settings, RefreshCcw, Download, Calendar, FileText, Database, Rows } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Line } from 'react-chartjs-2';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js';
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend, BarElement } from 'chart.js';
 import { motion } from 'framer-motion';
 import { api } from '../services/api';
 import { Producto } from '../types/product';
+import { getCalculosHistorial, HistorialCalculoItem } from '../services/calculoHistorialService';
+import { Bar } from 'react-chartjs-2';
 
 // Register Chart.js components
 ChartJS.register(
@@ -16,7 +18,8 @@ ChartJS.register(
   LineElement,
   Title,
   Tooltip,
-  Legend
+  Legend,
+  BarElement
 );
 
 // Interfaces
@@ -49,10 +52,14 @@ export default function DashboardPanel() {
   const [configuracionesRecientes, setConfiguracionesRecientes] = useState<Configuracion[]>([]);
   const [filtroConfiguracion, setFiltroConfiguracion] = useState('');
   const [categoriaFiltro, setCategoriaFiltro] = useState('todas');
-  const [timeGranularity, setTimeGranularity] = useState('Mes');
-  const [dataSource, setDataSource] = useState('Documentos');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // State for historial chart
+  const [historialData, setHistorialData] = useState<HistorialCalculoItem[]>([]);
+  const [equiposCotizadosChartData, setEquiposCotizadosChartData] = useState<any>(null);
+  const [loadingHistorial, setLoadingHistorial] = useState<boolean>(true);
+  const [errorHistorial, setErrorHistorial] = useState<string | null>(null);
 
   // Estilos
   const cardStyle: React.CSSProperties = {
@@ -193,137 +200,147 @@ export default function DashboardPanel() {
     marginBottom: '24px'
   };
 
-  // Cargar datos reales
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        // Obtener productos
-        const { data: productos } = await api.getCachedProducts();
-
-        // Validar y convertir productos a equipos
-        const equipos: Equipo[] = productos
-          .filter((producto: Producto) => {
-            // Filtrar productos inválidos
-            return producto && 
-                   typeof producto === 'object' && 
-                   (producto.codigo_producto || producto.nombre_del_producto);
-          })
-          .map((producto: Producto) => {
-            // Asegurarse de que los campos opcionales tengan valores por defecto
-            const codigo = producto.codigo_producto || 'Sin código';
-            const nombre = producto.nombre_del_producto || 'Sin nombre';
-            const categoria = producto.categoria || 'Sin categoría';
-            const ultimaActualizacion = producto.fecha_costo_original || new Date().toISOString();
-            const costoFabrica = typeof producto.costo_lista_original_eur === 'number' 
-              ? producto.costo_lista_original_eur 
-              : 0;
-
-            return {
-              codigo,
-              nombre,
-              categoria,
-              ultima_actualizacion: ultimaActualizacion,
-              costo_fabrica_eur: costoFabrica
-            };
-          });
-
-        // Filtrar equipos desactualizados (más de 20 horas)
-        const equiposDesactualizados = equipos.filter(equipo => {
-          try {
-            const ultimaActualizacion = new Date(equipo.ultima_actualizacion);
-            const ahora = new Date();
-            const horasDiferencia = (ahora.getTime() - ultimaActualizacion.getTime()) / (1000 * 60 * 60);
-            return horasDiferencia > 20;
-          } catch (error) {
-            console.error('Error al procesar fecha:', error);
-            return false;
-          }
-        });
-
-        setEquiposDesactualizados(equiposDesactualizados);
-
-        // TODO: Implementar la obtención de configuraciones recientes
-        // Por ahora, usamos un array vacío
-        setConfiguracionesRecientes([]);
-
-      } catch (err: any) {
-        console.error('Error fetching dashboard data:', err);
-        setError(err.message || 'Error al cargar los datos del dashboard');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
-  }, []);
-
-  // Sample data structure (replace with actual data fetching)
-  const sampleData = {
-    labels: ['jun 2023', 'dic 2023', 'ene 2024', 'feb 2024', 'mar 2024', 'abr 2024', 'may 2024', 'jun 2024', 'jul 2024', 'ago 2024', 'sept 2024', 'oct 2024', 'nov 2024', 'dic 2024', 'mar 2025', 'abr 2025', 'jun 2025', 'jul 2025'],
-    datasets: [
-      {
-        label: 'Cargos',
-        data: [0, 0, 0, 150, 0, 50, 300, 680, 50, 0, 0, 50, 100, 0, 0, 0, 0, 0], // Example data
-        borderColor: 'rgb(239, 68, 68)', // Red
-        backgroundColor: 'rgba(239, 68, 68, 0.5)',
-        tension: 0.1,
-        pointRadius: 5,
-        pointHoverRadius: 7
-      },
-      {
-        label: 'Abonos',
-        data: [0, 0, 100, 400, 0, 350, 0, 350, 0, 0, 150, 0, 0, 0, 0, 0, 0, 0], // Example data
-        borderColor: 'rgb(34, 197, 94)', // Green
-        backgroundColor: 'rgba(34, 197, 94, 0.5)',
-        tension: 0.1,
-        pointRadius: 5,
-        pointHoverRadius: 7
-      },
-      {
-        label: 'Balance Acumulado',
-        data: [0, 0, -10, -50, -20, 100, 0, -500, -600, -600, -500, -650, -700, -700, -700, -700, -700, -700], // Example data
-        borderColor: 'rgb(59, 130, 246)', // Blue
-        backgroundColor: 'rgba(59, 130, 246, 0.5)',
-        tension: 0.1,
-        pointRadius: 5,
-        pointHoverRadius: 7
-      }
-    ]
-  };
-
-  // Chart options
-  const options = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        position: 'bottom' as const, // Place legend at the bottom
-      },
-      title: {
-        display: false, // Title is handled outside the chart
-      },
-      tooltip: {
-        mode: 'index' as const,
-        intersect: false,
-      },
-    },
-    scales: {
-      y: {
-        beginAtZero: false, // Allow negative values
-        ticks: {
-          // Format Y-axis labels (e.g., 700M)
-          callback: function(value: number | string) {
-            if (typeof value === 'number') {
-              return (value / 1000000).toFixed(1) + 'M';
-            }
-            return value;
-          }
+  // Cargar datos generales del dashboard
+  const fetchData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const { data: productos } = await api.getCachedProducts();
+      const equipos: Equipo[] = productos
+        .filter((producto: Producto) => producto && typeof producto === 'object' && (producto.codigo_producto || producto.nombre_del_producto))
+        .map((producto: Producto) => ({
+          codigo: producto.codigo_producto || 'Sin código',
+          nombre: producto.nombre_del_producto || 'Sin nombre',
+          categoria: producto.categoria || 'Sin categoría',
+          ultima_actualizacion: producto.fecha_costo_original || new Date().toISOString(),
+          costo_fabrica_eur: typeof producto.costo_lista_original_eur === 'number' ? producto.costo_lista_original_eur : 0,
+        }));
+      const equiposDesactualizadosFiltrados = equipos.filter(equipo => {
+        try {
+          const ultimaActualizacion = new Date(equipo.ultima_actualizacion);
+          const ahora = new Date();
+          const horasDiferencia = (ahora.getTime() - ultimaActualizacion.getTime()) / (1000 * 60 * 60);
+          return horasDiferencia > 20;
+        } catch (error) {
+          console.error('Error al procesar fecha:', error);
+          return false;
         }
-      }
+      });
+      setEquiposDesactualizados(equiposDesactualizadosFiltrados);
+      setConfiguracionesRecientes([]); // Placeholder
+    } catch (err: any) {
+      console.error("Error fetching initial dashboard data:", err);
+      setError(err.message || 'Error al cargar datos del dashboard.');
+    } finally {
+      setLoading(false);
     }
+  }, []); // Dependencies for fetchData
+
+  // Cargar datos para el gráfico de historial
+  const fetchHistorialChartData = useCallback(async () => {
+    try {
+      setLoadingHistorial(true);
+      setErrorHistorial(null);
+      const rawHistorialData = await getCalculosHistorial();
+      setHistorialData(rawHistorialData);
+
+      const equipoStats: { [key: string]: { count: number; totalValue: number; name: string } } = {};
+      rawHistorialData.forEach(item => {
+        const principalItem = item.itemsParaCotizar?.[0]?.principal;
+        const equipoNombre = principalItem?.nombre_del_producto;
+        let valor = 0;
+        if (item.resultadosCalculados?.calculados?.precios_cliente?.precioVentaTotalClienteCLP && 
+            typeof item.resultadosCalculados.calculados.precios_cliente.precioVentaTotalClienteCLP === 'number') {
+          valor = item.resultadosCalculados.calculados.precios_cliente.precioVentaTotalClienteCLP;
+        }
+        if (equipoNombre) {
+          if (!equipoStats[equipoNombre]) {
+            equipoStats[equipoNombre] = { count: 0, totalValue: 0, name: equipoNombre };
+          }
+          equipoStats[equipoNombre].count++;
+          equipoStats[equipoNombre].totalValue += valor;
+        }
+      });
+
+      const sortedEquipos = Object.values(equipoStats).sort((a, b) => b.count - a.count);
+      const topN = 15;
+      const topEquipos = sortedEquipos.slice(0, topN);
+
+      const labels = topEquipos.map(e => e.name);
+      const countsData = topEquipos.map(e => e.count);
+      const avgValuesData = topEquipos.map(e => (e.count > 0 ? e.totalValue / e.count : 0));
+
+      setEquiposCotizadosChartData({
+        labels,
+        datasets: [
+          { label: 'Número de Cotizaciones', data: countsData, backgroundColor: 'rgba(54, 162, 235, 0.6)', borderColor: 'rgba(54, 162, 235, 1)', borderWidth: 1, yAxisID: 'y' },
+          { label: 'Valor Promedio Cotizado (CLP)', data: avgValuesData, backgroundColor: 'rgba(75, 192, 192, 0.6)', borderColor: 'rgba(75, 192, 192, 1)', borderWidth: 1, yAxisID: 'y1' },
+        ],
+      });
+    } catch (err: any) {
+      console.error("Error fetching historial data for chart:", err);
+      setErrorHistorial(err.message || 'Error al cargar datos de historial para el gráfico.');
+    } finally {
+      setLoadingHistorial(false);
+    }
+  }, []); // Dependencies for fetchHistorialChartData (api.getCachedProducts might be one if it changes)
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  useEffect(() => {
+    fetchHistorialChartData();
+  }, [fetchHistorialChartData]);
+
+  const renderEquiposDesactualizados = () => {
+    if (!equiposDesactualizados || equiposDesactualizados.length === 0) {
+      return <p style={{ color: '#6b7280', fontSize: '14px' }}>No hay equipos con costos desactualizados.</p>;
+    }
+
+    return (
+      <div style={cardStyle}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#374151' }}>
+            Equipos que Requieren Actualización
+          </h2>
+          <div style={warningStyle}>
+            <AlertCircle size={18} />
+            <span>Costos anteriores a 2024</span>
+          </div>
+        </div>
+        
+        <table style={tableStyle}>
+          <thead>
+            <tr>
+              <th style={thStyle}>Código</th>
+              <th style={thStyle}>Nombre</th>
+              <th style={thStyle}>Categoría</th>
+              <th style={thStyle}>Última Actualización</th>
+              <th style={thStyle}>Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {equiposDesactualizados.map((equipo) => (
+              <tr key={equipo.codigo}>
+                <td style={tdStyle}>{equipo.codigo}</td>
+                <td style={tdStyle}>{equipo.nombre}</td>
+                <td style={tdStyle}>{equipo.categoria}</td>
+                <td style={tdStyle}>{equipo.ultima_actualizacion}</td>
+                <td style={tdStyle}>
+                  <Link 
+                    to={`/admin/costos?equipo=${equipo.codigo}`}
+                    style={{ color: '#2563eb', textDecoration: 'none' }}
+                  >
+                    Actualizar
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
   };
 
   return (
@@ -337,6 +354,11 @@ export default function DashboardPanel() {
               style={primaryButtonStyle}
               whileHover={{ scale: 1.05, y: -2, transition: { duration: 0.2 } }}
               whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                fetchData(); 
+                fetchHistorialChartData(); 
+                console.log('Actualizando datos dashboard...');
+              }}
             > 
               <RefreshCcw size={16} />
               Actualizar
@@ -352,87 +374,123 @@ export default function DashboardPanel() {
           </div>
         </div>
 
-        {/* Financial Movements Chart Card */}
-        <div style={chartCardStyle}>
+        {error && (
+          <div style={{ ...cardStyle, backgroundColor: '#fee2e2', color: '#b91c1c', border: '1px solid #fecaca', marginBottom: '24px' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '16px' }}>Error General del Dashboard</h3>
+            <p style={{ margin: 0 }}>{error}</p>
+          </div>
+        )}
+
+        {/* EQUIPOS MÁS COTIZADOS CHART (MOVED HERE) */}
+        <motion.div
+          style={chartCardStyle}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.1 }}
+        >
           <div style={cardHeaderStyle}>
-            <h2 style={chartTitleStyle}>configuraciones</h2>
-            <div style={controlsContainerStyle}>
-              {/* Time Granularity Toggle */}
-              <div style={buttonGroupStyle}>
-                {['Mes', 'Trimestre', 'Año'].map(item => (
-                  <button 
-                    key={item}
-                    style={timeGranularity === item ? buttonGroupItemSelectedStyle : buttonGroupItemStyle}
-                    onClick={() => setTimeGranularity(item)}
-                  >
-                    {/* Consider adding icons like Calendar */}
-                    {item}
-                  </button>
-                ))}
-              </div>
-              {/* Data Source Toggle */}
-              <div style={buttonGroupStyle}>
-                {['Documentos', 'SII', 'Cartolas'].map(item => (
-                  <button 
-                    key={item}
-                    style={dataSource === item ? buttonGroupItemSelectedStyle : buttonGroupItemStyle}
-                    onClick={() => setDataSource(item)}
-                  >
-                    {/* Consider adding icons like FileText, Database, Rows */}
-                    {item}
-                  </button>
-                ))}
-              </div>
+            <h2 style={chartTitleStyle}>Equipos Más Cotizados y Sus Valores Promedio</h2>
+          </div>
+          {loadingHistorial && <p style={{padding: '20px', textAlign: 'center'}}>Cargando datos del historial de cotizaciones...</p>}
+          {errorHistorial && (
+            <div style={{ color: '#b91c1c', padding: '10px', border: '1px solid #fecaca', borderRadius: '4px', backgroundColor: '#fee2e2', margin: '20px' }}>
+              <p style={{ margin: 0 }}><strong>Error al cargar gráfico de historial:</strong> {errorHistorial}</p>
             </div>
-          </div>
-          <div style={chartContainerStyle}>
-            <Line options={options} data={sampleData} />
-          </div>
-        </div>
+          )}
+          {!loadingHistorial && !errorHistorial && equiposCotizadosChartData && equiposCotizadosChartData.labels && equiposCotizadosChartData.labels.length > 0 && (
+            <div style={chartContainerStyle}>
+              <Bar 
+                data={equiposCotizadosChartData} 
+                options={{
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  interaction: {
+                    mode: 'index' as const,
+                    intersect: false,
+                  },
+                  plugins: {
+                    legend: {
+                      position: 'top' as const,
+                    },
+                    title: {
+                      display: true,
+                      text: 'Top Equipos: Número de Cotizaciones y Valor Promedio (CLP)',
+                      font: { size: 16 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.dataset.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed.y !== null) {
+                                    if (context.dataset.yAxisID === 'y1') { 
+                                        label += new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0 }).format(context.parsed.y);
+                                    } else {
+                                        label += context.parsed.y;
+                                    }
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                  },
+                  scales: {
+                    x: {
+                      stacked: false,
+                      title: {
+                        display: true,
+                        text: 'Equipos'
+                      }
+                    },
+                    y: {
+                      type: 'linear' as const,
+                      display: true,
+                      position: 'left' as const,
+                      title: {
+                        display: true,
+                        text: 'Número de Cotizaciones',
+                      },
+                      beginAtZero: true,
+                      grid: {
+                        drawOnChartArea: false, 
+                      }
+                    },
+                    y1: {
+                      type: 'linear' as const,
+                      display: true,
+                      position: 'right' as const,
+                      title: {
+                        display: true,
+                        text: 'Valor Promedio Cotizado (CLP)',
+                      },
+                      beginAtZero: true,
+                      grid: {
+                        drawOnChartArea: true,
+                      },
+                      ticks: {
+                        callback: function(value: string | number) {
+                          if (typeof value === 'number') {
+                            return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(value);
+                          }
+                          return value;
+                        }
+                      }
+                    },
+                  },
+                }}
+              />
+            </div>
+          )}
+          {!loadingHistorial && !errorHistorial && (!equiposCotizadosChartData || !equiposCotizadosChartData.labels || equiposCotizadosChartData.labels.length === 0) && (
+            <p style={{padding: '20px', textAlign: 'center'}}>No hay datos de historial suficientes para mostrar en el gráfico.</p>
+          )}
+        </motion.div>
 
         <div style={gridContainerStyle}>
           {/* Equipos que necesitan actualización */}
-          <div style={cardStyle}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, color: '#374151' }}>
-                Equipos que Requieren Actualización
-              </h2>
-              <div style={warningStyle}>
-                <AlertCircle size={18} />
-                <span>Costos anteriores a 2024</span>
-              </div>
-            </div>
-            
-            <table style={tableStyle}>
-              <thead>
-                <tr>
-                  <th style={thStyle}>Código</th>
-                  <th style={thStyle}>Nombre</th>
-                  <th style={thStyle}>Categoría</th>
-                  <th style={thStyle}>Última Actualización</th>
-                  <th style={thStyle}>Acciones</th>
-                </tr>
-              </thead>
-              <tbody>
-                {equiposDesactualizados.map((equipo) => (
-                  <tr key={equipo.codigo}>
-                    <td style={tdStyle}>{equipo.codigo}</td>
-                    <td style={tdStyle}>{equipo.nombre}</td>
-                    <td style={tdStyle}>{equipo.categoria}</td>
-                    <td style={tdStyle}>{equipo.ultima_actualizacion}</td>
-                    <td style={tdStyle}>
-                      <Link 
-                        to={`/admin/costos?equipo=${equipo.codigo}`}
-                        style={{ color: '#2563eb', textDecoration: 'none' }}
-                      >
-                        Actualizar
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {renderEquiposDesactualizados()}
 
           {/* Configuraciones Previas */}
           <div style={cardStyle}>

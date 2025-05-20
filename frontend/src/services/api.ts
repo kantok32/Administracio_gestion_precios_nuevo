@@ -39,11 +39,25 @@ interface CalcularCostoProductoResponse {
 // --- FIN MODIFICACIÓN ---
 
 // Establecer URL base según entorno
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
+// const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api'; // Línea original comentada
+
+const API_BASE_PATH = '/api'; // Todas tus rutas de backend comienzan con /api
+const VITE_API_URL_ENV = import.meta.env.VITE_API_URL; // Puede ser una URL absoluta ej: https://api.example.com
+
+// Si VITE_API_URL_ENV está definida y no es una cadena vacía (para un backend en otro dominio), úsala tal cual, asegurándote de que no termine con / y luego añade API_BASE_PATH.
+// Si no está definida o está vacía, asume que el backend está en el mismo host, bajo API_BASE_PATH (funciona con el proxy de Vite y con backend en mismo dominio/subruta)
+let determinedApiUrl: string;
+if (VITE_API_URL_ENV && VITE_API_URL_ENV.trim() !== '') {
+  // Asegurarse de que no haya una barra inclinada al final de VITE_API_URL_ENV antes de concatenar
+  const cleanedViteApiUrl = VITE_API_URL_ENV.endsWith('/') ? VITE_API_URL_ENV.slice(0, -1) : VITE_API_URL_ENV;
+  determinedApiUrl = `${cleanedViteApiUrl}${API_BASE_PATH}`;
+} else {
+  determinedApiUrl = API_BASE_PATH;
+}
 
 // Instancia de axios con configuración común
 export const apiClient = axios.create({
-  baseURL: API_URL,
+  baseURL: determinedApiUrl,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -174,13 +188,8 @@ export const getEuroValue = async () => {
 };
 
 // --- INICIO MODIFICACIÓN: Unificar API_BASE_URL para perfiles y cálculos ---
-// const API_BASE_URL = 'http://localhost:5001/api'; // Esta parece ser la correcta para costo-perfiles
-// Si todo lo de /api/costo-perfiles usa el puerto 5001, entonces se debe usar esta.
-// Si /api/products/currency/* también está en 5001, entonces apiClient debería usar 5001.
-// Por ahora, mantendré las funciones de perfiles apuntando a 5001 y las de apiClient a 3000.
-// **Confirmar cuál es el puerto correcto para cada servicio.**
-// Para las funciones de costo-perfiles, usaré explícitamente la URL del backend de costos.
-const COSTO_API_URL = 'http://localhost:5001/api/costo-perfiles'; 
+// const API_BASE_URL = 'http://localhost:5001/api'; // Comentado o eliminado
+// const COSTO_API_URL = 'http://localhost:5001/api/costo-perfiles'; // Eliminado
 // --- FIN MODIFICACIÓN ---
 
 // --- Funciones relacionadas con Perfiles de Costo ---
